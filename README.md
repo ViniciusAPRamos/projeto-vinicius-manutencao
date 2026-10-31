@@ -16,13 +16,20 @@ Cada ajuste vem explicado em linguagem simples, mostra se já está aplicado e p
 
 O menu de texto antigo (v1.1) continua em `src\Executar-Modo-Texto.bat`.
 
+### Vários PCs iguais (empresa)
+
+1. Num PC, marque os ajustes em **Otimizar** e clique em **Exportar** (gera um `.json`).
+2. Em cada outro PC, com a pasta do otimizador: `src\Aplicar-Perfil.bat perfil.json`
+   (ou `Aplicar-Perfil.bat trabalho` para um perfil pronto). Aplica sem abrir a janela e mostra o resumo.
+
 ## O que tem
 
 - **Verificar o PC:** nota de 0 a 100, o que já está otimizado e a saúde do sistema, com botão para resolver cada ponto.
-- **67 ajustes** em 13 categorias, incluindo placa de vídeo, notebook e serviços.
+- **73 ajustes** em 14 categorias, incluindo placa de vídeo, notebook, serviços e navegadores.
 - **Placa de vídeo:** modos Desempenho máximo / Balanceado / Qualidade, monitor na taxa máxima e guia do painel NVIDIA/AMD/Intel.
 - **Notebook:** saúde da bateria e ajustes só para bateria. **Serviços:** desliga serviços desnecessários mostrando quanta RAM cada um usa.
-- **Ferramentas:** DNS com teste de velocidade, programas de inicialização (liga/desliga), teste de servidor TCP, drivers USB-serial e portas COM, reparo do Windows (DISM/SFC com progresso), instalação de programas (winget), relatório do PC em HTML e atalhos do Windows.
+- **Entender antes de aplicar:** prévia "agora → depois" no seu PC, glossário, modo simples/avançado e "o que mudou" depois de aplicar.
+- **Ferramentas** (em grupos): monitor de conexão, espaço em disco, temperaturas ao vivo, manutenção automática, suporte técnico (resumo para chamado, senhas Wi-Fi, ajuda remota), desinstalar Office, proteção/antivírus, DNS com teste de velocidade, programas de inicialização (liga/desliga), teste de servidor TCP, drivers USB-serial e portas COM, reparo do Windows (DISM/SFC com progresso), instalação de programas (winget), relatório do PC em HTML e atalhos do Windows.
 - **Segurança:** ponto de restauração antes da primeira alteração, valores originais guardados por ajuste, desfazer individual ou total, histórico de execuções e log diário.
 - Tema claro e escuro.
 

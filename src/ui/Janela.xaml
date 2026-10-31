@@ -1130,6 +1130,10 @@
                                                     <DataTrigger Binding="{Binding Name}" Value="Sistema e atualizações"><Setter TargetName="Ic" Property="Text" Value="&#xE9F5;"/></DataTrigger>
                                                     <DataTrigger Binding="{Binding Name}" Value="Rede"><Setter TargetName="Ic" Property="Text" Value="&#xE968;"/></DataTrigger>
                                                     <DataTrigger Binding="{Binding Name}" Value="Limpeza"><Setter TargetName="Ic" Property="Text" Value="&#xE74D;"/></DataTrigger>
+                                                    <DataTrigger Binding="{Binding Name}" Value="Placa de vídeo"><Setter TargetName="Ic" Property="Text" Value="&#xE7F4;"/></DataTrigger>
+                                                    <DataTrigger Binding="{Binding Name}" Value="Notebook e bateria"><Setter TargetName="Ic" Property="Text" Value="&#xE7F8;"/></DataTrigger>
+                                                    <DataTrigger Binding="{Binding Name}" Value="Serviços em segundo plano"><Setter TargetName="Ic" Property="Text" Value="&#xE9F5;"/></DataTrigger>
+                                                    <DataTrigger Binding="{Binding Name}" Value="Navegadores"><Setter TargetName="Ic" Property="Text" Value="&#xE774;"/></DataTrigger>
                                                 </DataTemplate.Triggers>
                                             </DataTemplate>
                                         </GroupStyle.HeaderTemplate>
@@ -1286,21 +1290,47 @@
                             <TextBlock Style="{StaticResource Titulo}" Text="Ferramentas"/>
                             <TextBlock Style="{StaticResource Subtitulo}" Text="Utilitários do dia a dia: rede, inicialização, equipamentos, reparo e programas."/>
                         </StackPanel>
-                        <WrapPanel Grid.Row="1" Margin="36,20,36,4">
-                            <RadioButton x:Name="RbFerRede" Style="{StaticResource Pill}" GroupName="fer" IsChecked="True"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE774;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Rede e DNS"/></StackPanel></RadioButton>
-                            <RadioButton x:Name="RbFerInicio" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE7E8;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Inicialização"/></StackPanel></RadioButton>
-                            <RadioButton x:Name="RbFerServidor" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE968;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Testar servidor"/></StackPanel></RadioButton>
-                            <RadioButton x:Name="RbFerSerial" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE88E;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Drivers e portas COM"/></StackPanel></RadioButton>
-                            <RadioButton x:Name="RbFerReparo" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE90F;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Reparar Windows"/></StackPanel></RadioButton>
-                            <RadioButton x:Name="RbFerProgramas" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE896;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Programas"/></StackPanel></RadioButton>
-                            <RadioButton x:Name="RbFerRelatorio" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE9D9;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Relatório do PC"/></StackPanel></RadioButton>
-                            <RadioButton x:Name="RbFerMonitor" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE9D9;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Monitor de conexão"/></StackPanel></RadioButton>
-                            <RadioButton x:Name="RbFerManut" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE81C;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Manutenção automática"/></StackPanel></RadioButton>
-                            <RadioButton x:Name="RbFerEspaco" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xEDA2;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Espaço em disco"/></StackPanel></RadioButton>
-                            <RadioButton x:Name="RbFerProtecao" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72E;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Proteção (antivírus)"/></StackPanel></RadioButton>
-                            <RadioButton x:Name="RbFerOffice" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8A5;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Desinstalar Office"/></StackPanel></RadioButton>
-                            <RadioButton x:Name="RbFerAtalhos" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8A7;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Atalhos do Windows"/></StackPanel></RadioButton>
-                        </WrapPanel>
+                        <StackPanel Grid.Row="1" Margin="36,18,36,4">
+                            <Grid Margin="0,0,0,2">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <TextBlock Text="REDE" Style="{StaticResource Rotulo}" VerticalAlignment="Top" Margin="0,10,0,0"/>
+                                <WrapPanel Grid.Column="1">
+                                    <RadioButton x:Name="RbFerRede" Style="{StaticResource Pill}" GroupName="fer" IsChecked="True"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE774;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Rede e DNS"/></StackPanel></RadioButton>
+                                    <RadioButton x:Name="RbFerMonitor" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE9D9;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Monitor de conexão"/></StackPanel></RadioButton>
+                                    <RadioButton x:Name="RbFerServidor" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE968;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Testar servidor"/></StackPanel></RadioButton>
+                                </WrapPanel>
+                            </Grid>
+                            <Grid Margin="0,0,0,2">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <TextBlock Text="PC" Style="{StaticResource Rotulo}" VerticalAlignment="Top" Margin="0,10,0,0"/>
+                                <WrapPanel Grid.Column="1">
+                                    <RadioButton x:Name="RbFerInicio" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE7E8;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Inicialização"/></StackPanel></RadioButton>
+                                    <RadioButton x:Name="RbFerEspaco" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xEDA2;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Espaço em disco"/></StackPanel></RadioButton>
+                                    <RadioButton x:Name="RbFerTemp" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE9CA;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Temperaturas"/></StackPanel></RadioButton>
+                                    <RadioButton x:Name="RbFerReparo" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE90F;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Reparar Windows"/></StackPanel></RadioButton>
+                                    <RadioButton x:Name="RbFerManut" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE81C;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Manutenção automática"/></StackPanel></RadioButton>
+                                    <RadioButton x:Name="RbFerRelatorio" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE9D9;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Relatório do PC"/></StackPanel></RadioButton>
+                                </WrapPanel>
+                            </Grid>
+                            <Grid Margin="0,0,0,2">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <TextBlock Text="PROGRAMAS E PROTEÇÃO" Style="{StaticResource Rotulo}" VerticalAlignment="Top" Margin="0,10,0,0"/>
+                                <WrapPanel Grid.Column="1">
+                                    <RadioButton x:Name="RbFerProgramas" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE896;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Programas"/></StackPanel></RadioButton>
+                                    <RadioButton x:Name="RbFerOffice" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8A5;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Desinstalar Office"/></StackPanel></RadioButton>
+                                    <RadioButton x:Name="RbFerProtecao" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72E;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Proteção (antivírus)"/></StackPanel></RadioButton>
+                                </WrapPanel>
+                            </Grid>
+                            <Grid Margin="0,0,0,2">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <TextBlock Text="SUPORTE" Style="{StaticResource Rotulo}" VerticalAlignment="Top" Margin="0,10,0,0"/>
+                                <WrapPanel Grid.Column="1">
+                                    <RadioButton x:Name="RbFerSuporte" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE77B;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Suporte técnico"/></StackPanel></RadioButton>
+                                    <RadioButton x:Name="RbFerSerial" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE88E;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Drivers e portas COM"/></StackPanel></RadioButton>
+                                    <RadioButton x:Name="RbFerAtalhos" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8A7;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Atalhos do Windows"/></StackPanel></RadioButton>
+                                </WrapPanel>
+                            </Grid>
+                        </StackPanel>
 
                         <Grid Grid.Row="2" Margin="36,8,36,24">
                             <!-- Rede -->
@@ -1700,6 +1730,123 @@
                                 </Border>
                             </ScrollViewer>
 
+                            <!-- Suporte técnico -->
+                            <ScrollViewer x:Name="FerSuporte" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,14">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <Border Style="{StaticResource Card}">
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                                    <TextBlock Text="&#xE77B;" Style="{StaticResource Icone}" FontSize="16" Foreground="{DynamicResource Acento}" Margin="0,0,10,0"/>
+                                                    <TextBlock Text="Ajuda remota" FontWeight="SemiBold" FontSize="15"/>
+                                                </StackPanel>
+                                                <TextBlock Style="{StaticResource CorpoSec}" FontSize="13" TextWrapping="Wrap" Text="Para alguém de confiança ver e controlar este PC, ou para você ajudar outra pessoa."/>
+                                                <TextBlock x:Name="TxtSupAnyDesk" FontWeight="SemiBold" Margin="0,10,0,0" Visibility="Collapsed"/>
+                                                <WrapPanel Margin="0,12,0,0">
+                                                    <Button x:Name="BtnSupQuickAssist" Style="{StaticResource BtnSecundario}" Margin="0,0,8,8"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8A7;" Style="{StaticResource IconeBtn}"/><TextBlock x:Name="TxtSupQuickAssist" Text="Assistência Rápida"/></StackPanel></Button>
+                                                    <Button x:Name="BtnSupRdp" Style="{StaticResource BtnFantasma}" Margin="0,0,8,8"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE7F4;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Área de Trabalho Remota"/></StackPanel></Button>
+                                                </WrapPanel>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Grid.Column="2" Style="{StaticResource Card}">
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                                    <TextBlock Text="&#xE701;" Style="{StaticResource Icone}" FontSize="16" Foreground="{DynamicResource Acento}" Margin="0,0,10,0"/>
+                                                    <TextBlock Text="Senhas de Wi-Fi salvas" FontWeight="SemiBold" FontSize="15"/>
+                                                </StackPanel>
+                                                <TextBlock x:Name="TxtSupWifi" Style="{StaticResource CorpoSec}" FontSize="13" TextWrapping="Wrap" Text="Mostra as redes Wi-Fi que este PC já conectou e a senha de cada uma (a mesma informação das propriedades da rede no Windows)."/>
+                                                <ItemsControl x:Name="ListaWifi" Margin="0,8,0,0">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid Margin="0,4">
+                                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                                <StackPanel>
+                                                                    <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                                    <TextBlock Text="{Binding Texto}" FontFamily="{DynamicResource FonteCodigo}" FontSize="12.5" Foreground="{DynamicResource TextoSec}"/>
+                                                                </StackPanel>
+                                                                <Button Grid.Column="1" Style="{StaticResource BtnLink}" Tag="{Binding Tag}" Content="{Binding Extra}" VerticalAlignment="Center"/>
+                                                                <Button Grid.Column="2" Style="{StaticResource BtnLink}" Tag="{Binding Icone}" Content="Copiar" VerticalAlignment="Center"/>
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <Button x:Name="BtnSupWifi" Style="{StaticResource BtnSecundario}" HorizontalAlignment="Left" Margin="0,10,0,0"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72E;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Mostrar redes salvas"/></StackPanel></Button>
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+                                    <Border Style="{StaticResource Card}">
+                                        <StackPanel>
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="Resumo do PC para o suporte" FontWeight="SemiBold" FontSize="15"/>
+                                                    <TextBlock Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,4,0,0" Text="Tudo o que o técnico costuma perguntar, num texto só: modelo, Windows, peças, rede, IP, MAC e ID do AnyDesk. Copie e cole no chamado ou no WhatsApp."/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="1" Margin="16,0,0,0" Orientation="Horizontal" VerticalAlignment="Top">
+                                                    <Button x:Name="BtnSupCopiar" Style="{StaticResource BtnPrimario}" Margin="0,0,8,0"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8C8;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Copiar"/></StackPanel></Button>
+                                                    <Button x:Name="BtnSupGerar" Style="{StaticResource BtnFantasma}"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Atualizar"/></StackPanel></Button>
+                                                </StackPanel>
+                                            </Grid>
+                                            <TextBox x:Name="TxtSupResumo" Style="{StaticResource CampoCodigo}" Margin="0,12,0,0" MinHeight="230" Text="Gerando..."/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
+
+                            <!-- Temperaturas -->
+                            <ScrollViewer x:Name="FerTemp" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <Border Style="{StaticResource Card}" Margin="0,0,0,14" Padding="18,14">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <Ellipse x:Name="PontoTempAoVivo" Width="10" Height="10" Fill="{DynamicResource Ok}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="Temperaturas ao vivo" FontWeight="SemiBold" FontSize="15"/>
+                                                <TextBlock x:Name="TxtTempStatus" Style="{StaticResource CorpoSec}" FontSize="13" Text="Atualiza a cada 2 segundos enquanto esta tela estiver aberta."/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                    <ItemsControl x:Name="ListaTemp">
+                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="2"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Style="{StaticResource Card}" Margin="0,0,12,12">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Extra}" Style="{StaticResource Rotulo}"/>
+                                                        <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                                            <TextBlock Text="{Binding Tag}" FontFamily="{DynamicResource FonteTitulo}" FontSize="34" FontWeight="SemiBold"/>
+                                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                                                                <TextBlock Style="{StaticResource IconeNivel}" FontSize="13" Margin="0,0,6,0"/>
+                                                                <TextBlock x:Name="Rot" Text="Normal" FontSize="12.5" Foreground="{DynamicResource TextoSec}"/>
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                        <ProgressBar Style="{StaticResource Barra}" Maximum="1" Value="{Binding Valor, Mode=OneWay}" Margin="0,8,0,8"/>
+                                                        <TextBlock Text="{Binding Texto}" Style="{StaticResource CorpoSec}" FontSize="12.5"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <DataTemplate.Triggers>
+                                                    <DataTrigger Binding="{Binding Nivel}" Value="medio"><Setter TargetName="Rot" Property="Text" Value="Quente"/></DataTrigger>
+                                                    <DataTrigger Binding="{Binding Nivel}" Value="alto"><Setter TargetName="Rot" Property="Text" Value="Muito quente"/></DataTrigger>
+                                                </DataTemplate.Triggers>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <Border x:Name="CardTempCpu" Background="{DynamicResource InfoSuave}" CornerRadius="12" Padding="16,12" Visibility="Collapsed">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <TextBlock Text="&#xE946;" Style="{StaticResource Icone}" FontSize="16" Foreground="{DynamicResource Info}" VerticalAlignment="Top" Margin="0,2,12,0"/>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="Temperatura do processador indisponível" FontWeight="SemiBold" Foreground="{DynamicResource Info}"/>
+                                                <TextBlock Style="{StaticResource Corpo}" FontSize="13" Foreground="{DynamicResource Info}" Text="A placa-mãe deste PC não informa a temperatura do processador ao Windows (é comum em desktops). Para ver todos os sensores (processador, placa-mãe, ventoinhas), instale o HWMonitor, um programa gratuito e confiável."/>
+                                            </StackPanel>
+                                            <Button x:Name="BtnTempHwmonitor" Grid.Column="2" Style="{StaticResource BtnSecundario}" VerticalAlignment="Center" Margin="12,0,0,0">
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE896;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Instalar HWMonitor"/></StackPanel>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
                             <!-- Monitor de conexão -->
                             <ScrollViewer x:Name="FerMonitor" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                                 <StackPanel>
@@ -1909,12 +2056,12 @@
                                     </Border>
                                     <Border Style="{StaticResource Card}">
                                         <StackPanel>
-                                            <Grid>
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                                 <StackPanel>
                                                     <TextBlock Text="Maiores arquivos da sua pasta" FontWeight="SemiBold" FontSize="15"/>
                                                     <TextBlock x:Name="TxtGrandesStatus" Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,4,0,0" Text="Procura arquivos acima de 300 MB na sua pasta de usuário. Só mostra; nada é apagado."/>
                                                 </StackPanel>
-                                                <Button x:Name="BtnGrandesProcurar" Style="{StaticResource BtnSecundario}" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                                <Button Grid.Column="1" Margin="16,0,0,0" x:Name="BtnGrandesProcurar" Style="{StaticResource BtnSecundario}" VerticalAlignment="Top">
                                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE721;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Procurar"/></StackPanel>
                                                 </Button>
                                             </Grid>

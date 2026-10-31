@@ -343,3 +343,126 @@ function Watch-Conexao($Alvos, $Controle) {
         }
     } finally { $ping.Dispose() }
 }
+# ===============================================================
+#  Suporte técnico
+# ===============================================================
+# Texto pronto para colar num chamado / WhatsApp do suporte
+function Get-ResumoChamado {
+    $genericos = 'Default string|To be filled|System Product Name|System manufacturer|O\.E\.M\.|^None$|^\s*$'
+    $info = Get-InfoPC
+    $cs = Get-CimInstance Win32_ComputerSystem
+    $bios = Get-CimInstance Win32_BIOS
+    $l = New-Object System.Collections.Generic.List[string]
+    $l.Add("=== Resumo do PC para suporte ===")
+    $l.Add("Gerado em: $(Get-Date -Format 'dd/MM/yyyy HH:mm')")
+    $l.Add("Computador: $env:COMPUTERNAME  |  Usuário: $env:USERDOMAIN\$env:USERNAME")
+    $modelo = (@($cs.Manufacturer, $cs.Model) | Where-Object { $_ -and $_ -notmatch $genericos }) -join ' '
+    if ($modelo) { $l.Add("Modelo: $modelo") }
+    if ($info.PlacaMae -and $info.PlacaMae -ne $modelo) { $l.Add("Placa-mãe: $($info.PlacaMae)") }
+    if ($bios.SerialNumber -and $bios.SerialNumber -notmatch $genericos) { $l.Add("Número de série: $($bios.SerialNumber)") }
+    $l.Add("Windows: $($info.Sistema) $($info.VersaoWin) (build $($Script:Otz.Build).$($Script:Otz.Ubr))")
+    $l.Add("Processador: $($info.Cpu) ($($info.Threads) threads)")
+    $l.Add("Memória: $($info.RamGB) GB ($($info.RamUso)% em uso agora)")
+    $l.Add("Disco do sistema: $($info.DiscoTipo), $($info.DiscoLivreGB) GB livres ($($info.DiscoLivre)%)")
+    if ($info.GpuNome) { $l.Add("Placa de vídeo: $($info.GpuNome)") }
+    $l.Add("Ligado há: $($info.UptimeTexto)")
+    foreach ($a in Get-AdaptadoresRede) {
+        $mac = (Get-NetAdapter -InterfaceIndex $a.Index -ErrorAction SilentlyContinue).MacAddress
+        $l.Add("Rede ($($a.Tipo)) $($a.Nome): IP $($a.Ip)  |  DNS $($a.Dns)  |  MAC $mac  |  $($a.Velocidade)")
+    }
+    $gw = Get-GatewayPadrao
+    if ($gw) { $l.Add("Gateway (roteador): $gw") }
+    $any = Get-IdAnyDesk
+    if ($any) { $l.Add("AnyDesk ID: $any") }
+    return ($l -join "`r`n")
+}
+
+function Get-IdAnyDesk {
+    foreach ($arq in "$env:ProgramData\AnyDesk\system.conf", "$env:APPDATA\AnyDesk\system.conf") {
+        if (-not (Test-Path $arq)) { continue }
+        try {
+            $linha = Get-Content $arq -ErrorAction Stop | Where-Object { $_ -match '^ad\.anynet\.id=' } | Select-Object -First 1
+            if ($linha) { return ($linha -split '=', 2)[1].Trim() }
+        } catch { }
+    }
+    return $null
+}
+
+# Redes Wi-Fi salvas e senhas (o mesmo que o Windows mostra nas propriedades da rede)
+function Get-SenhasWifi {
+    $saida = (netsh wlan show profiles 2>&1) -join "`n"
+    if ($saida -match 'interface sem fio|wireless interface|WLAN AutoConfig|Servi.o Configura..o Autom.tica de WLAN') {
+        return [pscustomobject]@{ SemWifi = $true; Redes = @(); Mensagem = 'Este PC não tem placa Wi-Fi (ou o serviço de Wi-Fi está desligado).' }
+    }
+    $redes = New-Object System.Collections.Generic.List[object]
+    $secao = $false
+    foreach ($linha in ($saida -split "`n")) {
+        if ($linha -match 'Perfis de usu|User profiles') { $secao = $true; continue }
+        if (-not $secao) { continue }
+        if ($linha -match '^\s+.+?\s:\s(.+)$') {
+            $nome = $Matches[1].Trim()
+            $det = (netsh wlan show profile name="$nome" key=clear 2>&1) -join "`n"
+            $senha = ''
+            if ($det -match '(Key Content|Conte.do da [Cc]have)\s*:\s*(.+)') { $senha = $Matches[2].Trim() }
+            $redes.Add([pscustomobject]@{ Nome = $nome; Senha = $senha })
+        }
+    }
+    return [pscustomobject]@{ SemWifi = $false; Redes = $redes.ToArray(); Mensagem = '' }
+}
+
+# Assistência Rápida: abre se instalada; senão informa (a instalação é pelo winget/Store)
+function Get-AppIdAssistenciaRapida {
+    $app = Get-StartApps -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'Quick Assist|Assist.ncia R.pida' } | Select-Object -First 1
+    if ($app) { return [string]$app.AppID }
+    return $null
+}
+
+# ===============================================================
+#  Temperaturas (sem programas extras)
+#  - Placa de vídeo NVIDIA: nvidia-smi (vem com o driver)
+#  - Discos: contador de confiabilidade do Windows
+#  - Processador: sensor ACPI, se a placa-mãe expuser (muitos desktops não expõem)
+# ===============================================================
+function Get-Temperaturas {
+    $res = New-Object System.Collections.Generic.List[object]
+    $smi = "$env:SystemRoot\System32\nvidia-smi.exe"
+    if (Test-Path $smi) {
+        $linhas = & $smi --query-gpu=name,temperature.gpu,utilization.gpu,power.draw,fan.speed --format=csv,noheader,nounits 2>$null
+        foreach ($l in @($linhas)) {
+            $p = $l -split ',\s*'
+            if ($p.Count -ge 5 -and $p[1] -match '^\d+') {
+                $t = [int]$p[1]
+                $nivel = if ($t -ge 85) { 'alto' } elseif ($t -ge 76) { 'medio' } else { 'ok' }
+                $fan = if ($p[4] -match '^\d+') { "ventoinha $($p[4])%" } else { 'ventoinha -' }
+                $pw = if ($p[3] -match '^[\d.]+') { "$([math]::Round([double]::Parse($p[3], [Globalization.CultureInfo]::InvariantCulture))) W" } else { '' }
+                $res.Add([pscustomobject]@{ Nome = $p[0].Trim(); Tipo = 'Placa de vídeo'; Celsius = $t; Nivel = $nivel; Detalhe = "uso $($p[2])%  ·  $pw  ·  $fan"; Limite = 'Normal até ~75 °C em jogo; acima de 85 °C, limpe a poeira e confira o fluxo de ar.' })
+            }
+        }
+    }
+    foreach ($d in @(Get-PhysicalDisk -ErrorAction SilentlyContinue)) {
+        $r = $d | Get-StorageReliabilityCounter -ErrorAction SilentlyContinue
+        if (-not $r -or -not $r.Temperature) { continue }
+        $t = [int]$r.Temperature
+        $ehNvme = [string]$d.BusType -eq 'NVMe'
+        $lim = if ($ehNvme) { 70 } elseif ([string]$d.MediaType -eq 'HDD') { 50 } else { 60 }
+        $nivel = if ($t -ge $lim) { 'alto' } elseif ($t -ge $lim - 10) { 'medio' } else { 'ok' }
+        $tipo = if ($ehNvme) { 'SSD NVMe' } else { "$($d.MediaType)" }
+        $res.Add([pscustomobject]@{ Nome = $d.FriendlyName; Tipo = "Disco ($tipo)"; Celsius = $t; Nivel = $nivel; Detalhe = "limite confortável: ~$lim °C"; Limite = "Acima de $lim °C o disco pode reduzir a velocidade para se proteger." })
+    }
+    $cpu = @(Get-CimInstance -Namespace root\wmi -ClassName MSAcpi_ThermalZoneTemperature -ErrorAction SilentlyContinue)
+    foreach ($z in $cpu) {
+        $t = [math]::Round($z.CurrentTemperature / 10 - 273.15)
+        if ($t -le 0 -or $t -ge 120) { continue }
+        $nivel = if ($t -ge 90) { 'alto' } elseif ($t -ge 80) { 'medio' } else { 'ok' }
+        $res.Add([pscustomobject]@{ Nome = 'Sensor da placa-mãe (ACPI)'; Tipo = 'Processador (aproximado)'; Celsius = [int]$t; Nivel = $nivel; Detalhe = 'zona térmica informada pela BIOS'; Limite = 'É uma leitura aproximada. Para a temperatura exata do processador, use o HWMonitor.' })
+    }
+    return [pscustomobject]@{ Sensores = $res.ToArray(); SemCpu = ($cpu.Count -eq 0) }
+}
+
+function Watch-Temperaturas($Controle) {
+    while (-not $Controle.Parar) {
+        $t = Get-Temperaturas
+        Send-Evento @{ Tipo = 'temp'; Dados = $t }
+        for ($i = 0; $i -lt 20 -and -not $Controle.Parar; $i++) { Start-Sleep -Milliseconds 100 }
+    }
+}

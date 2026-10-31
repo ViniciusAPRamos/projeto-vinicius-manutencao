@@ -400,6 +400,7 @@ $Script:Paginas = [ordered]@{
 
 function Show-Pagina([string]$Pagina) {
     foreach ($p in $Paginas.Values) { if ($p -ne $Pagina) { $UI[$p].Visibility = 'Collapsed' } }
+    if ($Pagina -ne 'PagFerramentas') { Stop-Temperaturas } elseif ($UI.FerTemp.Visibility -eq 'Visible') { Start-Temperaturas }
     Show-Entrada $UI[$Pagina]
     switch ($Pagina) {
         'PagHistorico'   { Update-Historico }
@@ -1053,12 +1054,13 @@ $UI.BtnDesfazerItem.Add_Click({
 $Script:FerPaineis = [ordered]@{
     RbFerRede = 'FerRede'; RbFerInicio = 'FerInicio'; RbFerServidor = 'FerServidor'; RbFerSerial = 'FerSerial'
     RbFerReparo = 'FerReparo'; RbFerProgramas = 'FerProgramas'; RbFerRelatorio = 'FerRelatorio'
-    RbFerMonitor = 'FerMonitor'; RbFerManut = 'FerManut'; RbFerEspaco = 'FerEspaco'; RbFerProtecao = 'FerProtecao'; RbFerOffice = 'FerOffice'; RbFerAtalhos = 'FerAtalhos'
+    RbFerSuporte = 'FerSuporte'; RbFerTemp = 'FerTemp'; RbFerMonitor = 'FerMonitor'; RbFerManut = 'FerManut'; RbFerEspaco = 'FerEspaco'; RbFerProtecao = 'FerProtecao'; RbFerOffice = 'FerOffice'; RbFerAtalhos = 'FerAtalhos'
 }
 
 function Show-Ferramenta([string]$Rb) {
     if (-not $UI[$Rb].IsChecked) { $UI[$Rb].IsChecked = $true; return }   # o evento Checked chama de novo
     $painel = $FerPaineis[$Rb]
+    if ($painel -eq 'FerTemp') { Start-Temperaturas } else { Stop-Temperaturas }
     foreach ($p in $FerPaineis.Values) { if ($p -ne $painel) { $UI[$p].Visibility = 'Collapsed' } }
     $UI[$painel].Visibility = 'Visible'
     Start-Animacao $UI[$painel] ([Windows.UIElement]::OpacityProperty) 0 1 220
@@ -1071,6 +1073,7 @@ function Show-Ferramenta([string]$Rb) {
             'FerProgramas' { Initialize-Winget }
             'FerEspaco'    { Update-Espaco }
             'FerManut'     { Initialize-Manut }
+            'FerSuporte'   { Initialize-Suporte }
             'FerProtecao'  { Update-Protecao }
             'FerOffice'    { Update-Office }
             'FerAtalhos'   { Initialize-Atalhos }
@@ -2437,6 +2440,110 @@ function Start-ManutAgora($Cfg) {
     }
 }
 
+# ---------------- Suporte técnico ----------------
+function Initialize-Suporte {
+    Update-ResumoChamado
+    Start-Tarefa -Nome 'sup-ids' -Script '@{ Qa = (Get-AppIdAssistenciaRapida); Any = (Get-IdAnyDesk) }' -AoTerminar {
+        param($saida, $erro)
+        $r = @($saida | Where-Object { $_ -is [hashtable] })[0]
+        $S.AppQuickAssist = if ($r) { [string]$r.Qa } else { '' }
+        $UI.TxtSupQuickAssist.Text = if ($S.AppQuickAssist) { 'Abrir Assistência Rápida' } else { 'Instalar Assistência Rápida' }
+        if ($r -and $r.Any) { $UI.TxtSupAnyDesk.Text = "Seu ID do AnyDesk: $($r.Any)"; $UI.TxtSupAnyDesk.Visibility = 'Visible' }
+    }
+}
+function Update-ResumoChamado {
+    $UI.TxtSupResumo.Text = 'Gerando...'
+    Start-Tarefa -Nome 'sup-resumo' -Script 'Get-ResumoChamado' -AoTerminar {
+        param($saida, $erro)
+        $UI.TxtSupResumo.Text = if ($erro) { "Falhou: $erro" } else { [string](@($saida) -join "`r`n") }
+    }
+}
+$UI.BtnSupGerar.Add_Click({ Update-ResumoChamado })
+$UI.BtnSupCopiar.Add_Click({
+    try { [Windows.Clipboard]::SetText($UI.TxtSupResumo.Text); Show-Toast 'Resumo copiado. É só colar (Ctrl+V) no chamado ou no WhatsApp.' 'ok' }
+    catch { Show-Toast "Não foi possível copiar: $($_.Exception.Message)" 'erro' }
+})
+$UI.BtnSupRdp.Add_Click({ Start-Process mstsc.exe })
+$UI.BtnSupQuickAssist.Add_Click({
+    if ($S.AppQuickAssist) { Start-Process explorer.exe "shell:AppsFolder\$($S.AppQuickAssist)"; return }
+    Show-Dialogo -Titulo 'Instalar a Assistência Rápida?' -TextoOk 'Instalar' `
+        -Texto 'É o app gratuito da Microsoft para ajuda remota (alguém vê e controla a sua tela com um código de 6 dígitos). Será instalado pela Microsoft Store via winget.' -Acao {
+            $wg = (Get-Command winget -ErrorAction SilentlyContinue).Source
+            if (-not $wg) { Show-Toast 'winget não encontrado. Instale pela Microsoft Store: procure "Assistência Rápida".' 'erro'; return }
+            Show-Toast 'Instalando a Assistência Rápida...' 'info'
+            Start-Tarefa -Nome 'sup-qa' -Parametros @{ W = $wg } -Script 'Invoke-ProcessoAoVivo -Arquivo $Parametros.W -Argumentos "install --id 9P7BP5VNWKX5 --source msstore --accept-source-agreements --accept-package-agreements" -Codificacao utf8 | Out-Null; Get-AppIdAssistenciaRapida' -AoTerminar {
+                param($saida, $erro)
+                $id = [string](@($saida) | Where-Object { $_ } | Select-Object -Last 1)
+                if ($id) { $S.AppQuickAssist = $id; $UI.TxtSupQuickAssist.Text = 'Abrir Assistência Rápida'; Show-Toast 'Assistência Rápida instalada.' 'ok' }
+                else { Show-Toast 'Não foi possível confirmar a instalação. Procure "Assistência Rápida" no Iniciar.' 'aviso' }
+            }
+        }
+})
+
+$S.WifiVisivel = @{}
+function Show-ListaWifi {
+    $UI.ListaWifi.ItemsSource = ConvertTo-Linhas @(@($S.WifiRedes) | ForEach-Object {
+        $ver = $S.WifiVisivel[$_.Nome]
+        $txt = if (-not $_.Senha) { '(rede aberta ou senha não salva)' } elseif ($ver) { $_.Senha } else { '••••••••' }
+        New-Linha -Titulo $_.Nome -Texto $txt -Tag $_.Nome -Extra $(if ($_.Senha) { if ($ver) { 'Esconder' } else { 'Mostrar' } } else { '' }) -Icone ([string]$_.Senha)
+    })
+}
+$UI.BtnSupWifi.Add_Click({
+    $UI.BtnSupWifi.IsEnabled = $false
+    Start-Tarefa -Nome 'sup-wifi' -Script 'Get-SenhasWifi' -AoTerminar {
+        param($saida, $erro)
+        $UI.BtnSupWifi.IsEnabled = $true
+        $r = @($saida)[0]
+        if ($erro -or -not $r) { Show-Toast "Falhou: $erro" 'erro'; return }
+        if ($r.SemWifi) { $UI.TxtSupWifi.Text = $r.Mensagem; $S.WifiRedes = @(); Show-ListaWifi; return }
+        $S.WifiRedes = @($r.Redes)
+        $UI.TxtSupWifi.Text = if ($S.WifiRedes.Count) { "$($S.WifiRedes.Count) rede(s) salvas. Clique em Mostrar para ver a senha." } else { 'Nenhuma rede Wi-Fi salva neste PC.' }
+        Show-ListaWifi
+    }
+})
+$UI.ListaWifi.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Windows.RoutedEventHandler]{
+    param($origem, $e)
+    $b = $e.OriginalSource
+    if ([string]$b.Content -eq 'Copiar') {
+        if ($b.Tag) { [Windows.Clipboard]::SetText([string]$b.Tag); Show-Toast 'Senha copiada.' 'ok' } else { Show-Toast 'Esta rede não tem senha salva.' 'info' }
+    } elseif ($b.Tag) {
+        $S.WifiVisivel[[string]$b.Tag] = -not $S.WifiVisivel[[string]$b.Tag]
+        Show-ListaWifi
+    }
+})
+
+# ---------------- Temperaturas (ao vivo enquanto a aba está aberta) ----------------
+$S.Temp = @{ Controle = $null }
+function Start-Temperaturas {
+    if (Test-TarefaAtiva 'temperaturas') { return }
+    $S.Temp.Controle = [hashtable]::Synchronized(@{ Parar = $false })
+    $UI.TxtTempStatus.Text = 'Lendo os sensores...'
+    $pulso = New-Object Windows.Media.Animation.DoubleAnimation 1, 0.25, (New-Object Windows.Duration ([TimeSpan]::FromMilliseconds(900)))
+    $pulso.AutoReverse = $true; $pulso.RepeatBehavior = [Windows.Media.Animation.RepeatBehavior]::Forever
+    $UI.PontoTempAoVivo.BeginAnimation([Windows.UIElement]::OpacityProperty, $pulso)
+    Start-Tarefa -Nome 'temperaturas' -Script 'Watch-Temperaturas $Parametros.Controle' -Parametros @{ Controle = $S.Temp.Controle } -AoEvento {
+        param($ev)
+        if ($ev.Tipo -eq 'temp') { Show-Temperaturas $ev.Dados }
+    } -AoTerminar { $UI.PontoTempAoVivo.BeginAnimation([Windows.UIElement]::OpacityProperty, $null) }
+}
+function Stop-Temperaturas { if ($S.Temp -and $S.Temp.Controle) { $S.Temp.Controle.Parar = $true } }
+
+function Show-Temperaturas($Dados) {
+    $sens = @($Dados.Sensores)
+    $UI.ListaTemp.ItemsSource = ConvertTo-Linhas @($sens | ForEach-Object {
+        New-Linha -Titulo $_.Nome -Extra ([string]$_.Tipo).ToUpperInvariant() -Tag "$($_.Celsius) °C" -Nivel $_.Nivel -Texto "$($_.Detalhe). $($_.Limite)" -Valor ([math]::Min(1, $_.Celsius / 100))
+    })
+    $UI.CardTempCpu.Visibility = if ($Dados.SemCpu) { 'Visible' } else { 'Collapsed' }
+    $UI.TxtTempStatus.Text = if ($sens.Count) { "Atualizado às $(Get-Date -Format 'HH:mm:ss'). Atualiza a cada 2 segundos enquanto esta tela estiver aberta." }
+                             else { 'Nenhum sensor disponível sem programas extras. Veja a dica abaixo.' }
+}
+$UI.BtnTempHwmonitor.Add_Click({
+    Show-Ferramenta 'RbFerProgramas'
+    if (-not $S.WingetLista) { Initialize-Winget }
+    $hw = $S.WingetLista | Where-Object { $_.Tag -eq 'CPUID.HWMonitor' } | Select-Object -First 1
+    if ($hw) { $hw.Marcado = $true; Show-Toast 'HWMonitor marcado. Clique em "Instalar selecionados".' 'info' }
+})
+
 # ===============================================================
 #  Histórico
 # ===============================================================
@@ -2516,6 +2623,7 @@ $Win.Add_Closing({
     param($origem, $e)
     if ($S.Executando) { $e.Cancel = $true; Show-Toast 'Aguarde a execução terminar antes de fechar.' 'aviso'; return }
     if ($S.Mon -and $S.Mon.Controle) { $S.Mon.Controle.Parar = $true }
+    Stop-Temperaturas
 })
 $Win.Add_PreviewKeyDown({
     param($origem, $e)
@@ -2666,6 +2774,17 @@ if ($Captura) {
         { $S.Mon.Controle.Parar = $true; Show-Ferramenta 'RbFerManut' }
         { }
         { Save-Captura '30-manutencao' }
+        { Show-Ferramenta 'RbFerSuporte' }
+        { }
+        { }
+        { Save-Captura '31-suporte' }
+        { Show-Ferramenta 'RbFerTemp' }
+        { }
+        { }
+        { Save-Captura '32-temperaturas' }
+        { Open-Pagina 'NavOtimizar'; $UI.TxtBusca.Text = 'navegador' }
+        { Save-Captura '33-navegadores' }
+        { $UI.TxtBusca.Text = '' }
         { Open-Pagina 'NavHistorico' }
         { Save-Captura '7-historico' }
         { Open-Pagina 'NavAjuda' }

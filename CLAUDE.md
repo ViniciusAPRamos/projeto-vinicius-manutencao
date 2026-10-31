@@ -20,10 +20,13 @@
 | `src/Otimizador-Vinicius-GUI.ps1` | Janela: navegação, eventos, tarefas em segundo plano. Parâmetros de desenvolvimento: `-SemElevar` e `-Captura <pasta>` (salva PNG de cada tela e fecha). |
 | `src/nucleo.ps1` | Motor: registro via .NET (HKCU/HKLM/HKU, valor padrão, tipos exatos), powercfg, originais, catálogo, `Invoke-Plano`, ponto de restauração, histórico, log. |
 | `src/diagnostico.ps1` | Placa de vídeo (`Get-InfoGpu`, dicas do painel por fabricante/modo, placa por programa), bateria, memória e as checagens da página Verificar (`Get-Saude*`, evento `checagem`). |
+| `src/manutencao.ps1` | Manutenção automática: tarefa no Agendador (`Register-/Unregister-Manutencao`) e o que ela roda (`Invoke-ManutencaoAgendada`, modo `-Manutencao`). |
+| `src/glossario.ps1` | Termos técnicos em linguagem simples + `Get-GlossarioTexto` (painel de detalhes e Ajuda). |
+| `src/Aplicar-Perfil.bat` | Modo silencioso: `Aplicar-Perfil.bat <basico\|trabalho\|gamer\|leve\|arquivo.json>` (sem janela, resumo no console). |
 | `src/seguranca.ps1` | Office (detectar + desinstalar pela string oficial) e Proteção/antivírus (estado real do Defender, pausar/reativar quando o Tamper Protection permite, exclusão de pasta, atalhos para a Segurança do Windows). |
 | `src/ui/Tela.cs` | Win32 `EnumDisplaySettings`/`ChangeDisplaySettingsEx`: Hz atual e máximo de cada monitor. |
 | `src/ferramentas.ps1` | `Get-InfoPC`, relatório HTML, inicialização, drivers serial, DNS, teste TCP, `Invoke-ProcessoAoVivo` (SFC/DISM/winget), lista winget. |
-| `src/catalogo/NN-*.ps1` | Um arquivo por categoria; cada item é um hashtable (ver `docs/catalogo.md`). 67 itens. Tipos de mudança suportados pelo motor: `Registro`, `Energia` (com `Corrente = 'dc'` para bateria), `Servicos` (sc config), `DirectX` (string global de jogos) ou código próprio. |
+| `src/catalogo/NN-*.ps1` | Um arquivo por categoria; cada item é um hashtable (ver `docs/catalogo.md`). 73 itens em 14 categorias. Tipos de mudança suportados pelo motor: `Registro`, `Energia` (com `Corrente = 'dc'` para bateria), `Servicos` (sc config), `DirectX` (string global de jogos) ou código próprio. |
 | `src/ui/Janela.xaml` | Layout, estilos e paleta (escuro; o tema claro troca os pincéis em `Set-Tema`). |
 | `src/ui/Modelos.cs` | View models com `INotifyPropertyChanged` (`Otz.Ajuste`, `Otz.ItemInicio`, `Otz.Linha`), compilados com `Add-Type` (C# 5). |
 | `src/Otimizador-Vinicius.ps1` + `Executar-Modo-Texto.bat` | v1.1 (menu de texto), com as correções da revisão. |
@@ -126,6 +129,7 @@
 2. ~~Colocar o projeto no **Git**~~ ✅ feito (estrutura `src/`, `config/`, `docs/`; `.gitattributes` força CRLF).
 3. Validar os IDs do winget, o StartupApproved no Win10, o valor do Num Lock (`2` ou `2147483650`), os nomes `VRROptimizeEnable`/`AutoHDREnable` e os GUIDs de tampa/economia de bateria num notebook.
 4. Testar num **Windows 10** (VM): itens exclusivos, fonte Segoe MDL2 e notícias e interesses.
+5. Validar os itens dos lotes B–E (plano de testes, fase 5c): leitura de senhas Wi-Fi do `netsh` em português (só testável com placa Wi-Fi), políticas de navegador em `edge://policy`/`chrome://policy`, `Aplicar-Perfil.bat` e a tarefa agendada de manutenção.
 
 ---
 
@@ -238,12 +242,10 @@ Evitar Electron (pesado demais para um otimizador).
 - Desfazer por item + histórico de execuções.
 - Seletor manual de Windows 10/11.
 
+**Feitos na v2.0:** perfil exportável + modo silencioso (`Aplicar-Perfil.bat`), aba Técnico (drivers, COM, teste TCP), reparo DISM/SFC, manutenção agendada, evolução da nota (antes/depois), espaço em disco, monitor de conexão, suporte técnico, temperaturas (sem componente externo), navegadores.
+
 **Média prioridade**
-- **Perfil exportável + modo silencioso por linha de comando** (`/perfil trabalho.json`) para padronizar vários PCs da empresa.
-- **Aba Técnico:** drivers serial, portas COM e **teste de conexão TCP** (`Test-NetConnection -Port`) para servidores/plataformas. UDP não é testável do mesmo jeito; precisa de abordagem própria.
-- **Reparo do Windows** (`sfc /scannow`, `DISM /Online /Cleanup-Image /RestoreHealth`) com progresso.
-- **Manutenção agendada** (limpeza semanal pelo Agendador de Tarefas).
-- **Comparar antes/depois:** gerar o relatório H antes e depois da otimização.
+- **Teste UDP** (precisa de um programa que responda no servidor).
 - **Checklist de BIOS** (XMP/EXPO, Resizable BAR) no relatório — só orienta, não altera.
 - Efeitos visuais "melhor desempenho" como item do perfil Low-end.
 
@@ -311,4 +313,6 @@ Todas causaram bugs reais. Conferir sempre que escrever código novo.
 | `[T[]]@($lista)` com `List[object]` | `Os tipos de argumento não correspondem` (quase quebrou o diálogo de Aplicar) | Converter com laço + `List[T].ToArray()` (`ConvertTo-Linhas`). |
 | Apelido de `powercfg` que não existe | `LIDACTION`, `ESBATTTHRESHOLD`, `SUB_ENERGYSAVER` e `PERFBOOSTMODE` NÃO existem neste Windows | Conferir com `powercfg /aliases`; usar o GUID. |
 | `.bat` com BOM | O `cmd` quebra na 1ª linha | `.bat` em ASCII + CRLF. |
+| Variáveis não diferenciam maiúsculas | `foreach ($s in ...)` ou `param($s, $e)` sobrescreve o estado global `$S` (quebrou o Enter do teste de servidor) | Nunca usar `$s`, `$ui`, `$win`, `$otz` como variável local. |
+| Função com nome de apelido | `function R { }` perde para o apelido `R` (Invoke-History) | Nomes descritivos (`Substituir`), nunca 1 letra. |
 | `\\` como variável | É automática do PowerShell; atribuir quebra | Usar outro nome (`\\`). |

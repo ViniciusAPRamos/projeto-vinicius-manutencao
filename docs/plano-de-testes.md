@@ -50,5 +50,17 @@ O log fica em `Documentos\OtimizadorVinicius\log_<data>.txt` (Histórico > Log d
 - [ ] Serviços: aplicar "Rastreamento de atalhos em rede", conferir em services.msc (TrkWks = Manual, parado) e desfazer (volta Automático e rodando).
 - [ ] **Num notebook:** página Notebook mostra a saúde da bateria; aplicar os 4 ajustes e conferir no powercfg /q (os GUIDs da tampa e da economia de bateria só existem em notebook).
 
+## Fase 5c: lotes B a E
+- [ ] Otimizar > Exportar com 3 itens marcados; Importar o arquivo: os mesmos 3 voltam marcados.
+- [ ] `src\Aplicar-Perfil.bat basico` num PC de teste: o console lista [OK]/[ERRO] e o Histórico registra.
+- [ ] Modo avançado liga/desliga e é lembrado ao reabrir.
+- [ ] Espaço em disco > Limpar o cache dos navegadores (com o navegador fechado) e conferir o tamanho caindo.
+- [ ] Manutenção automática > Ligar; conferir em `taskschd.msc` a tarefa "Otimizador Vinicius - Manutencao"; Rodar agora; Desligar remove a tarefa.
+- [ ] Monitor de conexão: tirar o cabo/Wi-Fi por 5 s e ver as marcas de "sem resposta" e o diagnóstico mudar.
+- [ ] Suporte técnico **num notebook com Wi-Fi**: "Mostrar redes salvas" lista as redes e a senha confere (valida a leitura do `netsh` em português).
+- [ ] Assistência Rápida: instalar pelo botão e abrir.
+- [ ] Navegadores: aplicar os 4 itens e conferir em `edge://policy` e `chrome://policy` (aparecem como obrigatórios); desfazer e conferir que somem.
+- [ ] Temperaturas: rodar um jogo e ver a GPU subir; trocar de aba e confirmar que a leitura para.
+
 ## Fase 6: desfazer tudo
 - [ ] Histórico > Desfazer todos. Conferir que os itens voltam para "Pendente" (exceto os que já estavam aplicados antes do otimizador).

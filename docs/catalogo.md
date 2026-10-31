@@ -34,6 +34,30 @@ Com `Registro`, o motor faz tudo sozinho: **detectar**, **simular**, **aplicar**
 Energia = @( @{ Sub = 'SUB_SLEEP'; Config = 'STANDBYIDLE'; Valor = 0 } )
 ```
 
+### Na bateria (notebooks)
+
+```powershell
+Energia = @( @{ Sub = 'SUB_VIDEO'; Config = 'VIDEOIDLE'; Valor = 180; Corrente = 'dc' } )
+```
+
+Confira os apelidos com `powercfg /aliases`; quando não existir, use o GUID.
+
+## Serviços do Windows
+
+```powershell
+Servicos = @( @{ Nome = 'TrkWks'; Modo = 'demand' } )   # auto | delayed-auto | demand | disabled
+```
+
+O motor guarda o modo original, aplica com `sc config`, para o serviço (libera a RAM na hora) e, no desfazer, volta o modo e religa se estava rodando. A detecção mostra quanto de memória o serviço usa.
+
+## Opções globais de jogos (DirectX)
+
+```powershell
+DirectX = @( @{ Chave = 'VRROptimizeEnable'; Valor = '1' } )
+```
+
+Edita só a chave pedida dentro de `DirectXUserGlobalSettings`, preservando as outras.
+
 ## Ajuste com código próprio
 
 Use quando não for registro nem powercfg (ex.: `energia.plano`, `rede.energia-placa`, `sistema.hibernacao`):

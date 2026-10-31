@@ -2,6 +2,19 @@
 
 ## [2.0] — em teste
 
+### Novo (4ª rodada: lotes B a E)
+- **Perfis exportáveis e modo silencioso:** Exportar/Importar perfil (.json) em Otimizar; `Aplicar-Perfil.bat <basico|trabalho|gamer|leve|arquivo.json>` aplica sem janela, com resumo no console. Para padronizar vários PCs.
+- **Entender o que é feito:** "O que mudou" em linguagem simples depois de aplicar; prévia "agora → depois" de cada ajuste no seu PC; modo **simples/avançado** (o simples esconde detalhes técnicos e ajustes avançados); **glossário** de palavras difíceis no painel de detalhes e na Ajuda.
+- **Espaço em disco:** onde está o espaço (Downloads, caches, temporários, atualizações, Windows.old, hibernação), limpar com um clique e maiores arquivos com explicação do que são. Novas limpezas: cache dos navegadores e atualizações do Windows já baixadas.
+- **Evolução da nota:** cada verificação vira um ponto num gráfico de linha.
+- **Manutenção automática:** tarefa no Agendador do Windows (semanal/diária) que limpa e verifica o PC sem janela; Rodar agora; resultado da última execução.
+- **Monitor de conexão:** roteador e internet lado a lado, a cada segundo, com perda, variação, gráfico de 60 s e diagnóstico (Wi-Fi/cabo ou provedor).
+- **Suporte técnico:** resumo do PC para chamado (copiar), ID do AnyDesk, senhas de Wi-Fi salvas, Assistência Rápida (abre ou instala) e Área de Trabalho Remota.
+- **Navegadores** (catálogo): Edge e Chrome fecham de verdade, Edge sem pré-carregamento e com abas que "dormem".
+- **Temperaturas ao vivo:** placa de vídeo NVIDIA (nvidia-smi), discos e sensor da placa-mãe quando existe; sem sensor de CPU, indica o HWMonitor.
+- Ferramentas reorganizadas em grupos (Rede, PC, Programas e proteção, Suporte).
+- Correção: Enter no teste de servidor quebrava o estado da janela (`$s`/`$S`).
+
 ### Novo (3ª rodada)
 - **Programas (winget):** lista agrupada por categoria e novos programas (Flameshot, WinRAR, Radmin VPN e a suíte ArtCraft: PdfCraft, VectorCraft, CadCraft, EffectCraft, FilmCraft, GridCraft, SoundCraft). IDs conferidos com `winget search`; RustDesk removido (saiu do winget). A lista pessoal agora aceita `Id;Nome;Grupo`.
 - **Desinstalar Office:** detecta Word/Excel/Outlook/Microsoft 365 (Click-to-Run, MSI e Store) e remove tudo usando a string de desinstalação oficial do próprio Office, com log ao vivo. Pede confirmação; não apaga seus arquivos.

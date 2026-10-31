@@ -294,6 +294,8 @@ function Measure-NotaPc {
     }
     $info = Get-InfoPC
     $checks = @(@(Get-SaudeSeguranca) + @(Get-SaudeAtualizacoes) + @(Get-SaudeHardware $info) + @(Get-SaudeVideo | Where-Object { $_.Titulo }) + @(Get-SaudeManutencao $info))
+    # Estabilidade fica em analise.ps1 (carregado pela janela, tarefas e modos sem janela)
+    if (Get-Command Get-SaudeEstabilidade -ErrorAction SilentlyContinue) { $checks += @(Get-SaudeEstabilidade) }
     $validos = @($checks | Where-Object { $_.Nivel -ne 'info' })
     $fracA = if ($base) { $aplicados / $base } else { 1 }
     $fracS = if ($validos.Count) { @($validos | Where-Object Nivel -eq 'ok').Count / $validos.Count } else { 1 }

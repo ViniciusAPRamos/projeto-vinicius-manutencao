@@ -2,6 +2,19 @@
 
 ## [2.0] — em teste
 
+### Novo (5ª rodada: diagnóstico e ferramentas)
+- **Página Diagnóstico** (só leitura):
+  - **Por que está lento?** CPU, RAM e disco em 2 segundos, quem mais usa cada um (com nome amigável e botão Finalizar) e conclusões em linguagem simples (Defender verificando, Windows Update instalando, navegador com muita memória, disco em 100%, GPU quente...).
+  - **Tempo para ligar:** segundos até a área de trabalho em cada inicialização e o que atrasou (programas, drivers, serviços), lido do log de desempenho do Windows (precisa de administrador).
+  - **Travamentos e desligamentos:** índice de confiabilidade do Windows, desligamentos inesperados (Kernel-Power 41), telas azuis, erros de hardware (WHEA) e programas que fecharam com erro. Também entra na página Verificar.
+  - **Cabo e Wi-Fi:** velocidade negociada do cabo (alerta quando uma placa gigabit cai para 100 Mbps), half duplex, sinal/faixa/taxa do Wi-Fi.
+  - **BIOS e hardware:** UEFI, Secure Boot, TPM, XMP/EXPO, dual channel, Resizable BAR (NVIDIA RTX 30+), virtualização e idade da BIOS, com onde ligar cada opção. Botão "Reiniciar direto na BIOS".
+- **Antes × depois** no Histórico: referência gravada antes da primeira otimização; tempo para ligar comparado desde a primeira aplicação.
+- **Ajustes novos:** arquivo de paginação gerenciado pelo Windows, TRIM e otimização semanal do SSD, apps da Store sem segundo plano (moderado), limpeza de componentes do Windows (WinSxS, DISM sem /ResetBase) e otimizar SSDs agora (ReTrim). Total: 78.
+- **Ferramentas:** Modo jogo (fecha os programas escolhidos sem forçar, desempenho máximo e volta tudo ao terminar), Apps do Windows (lista curada, remoção um por um, reinstaláveis pela Store), Vários PCs (inventário em pasta compartilhada, tabela do pior para o melhor e planilha CSV) e `Inventario-PC.bat` (sem administrador).
+- **Espaço em disco:** arquivos repetidos (mesmo conteúdo, pula arquivos só na nuvem; cópias vão para a Lixeira) e programas que mais ocupam espaço com botão Desinstalar.
+- Glossário: TRIM, arquivo de paginação, WinSxS, BIOS/UEFI, Secure Boot, TPM, Resizable BAR.
+
 ### Novo (4ª rodada: lotes B a E)
 - **Perfis exportáveis e modo silencioso:** Exportar/Importar perfil (.json) em Otimizar; `Aplicar-Perfil.bat <basico|trabalho|gamer|leve|arquivo.json>` aplica sem janela, com resumo no console. Para padronizar vários PCs.
 - **Entender o que é feito:** "O que mudou" em linguagem simples depois de aplicar; prévia "agora → depois" de cada ajuste no seu PC; modo **simples/avançado** (o simples esconde detalhes técnicos e ajustes avançados); **glossário** de palavras difíceis no painel de detalhes e na Ajuda.

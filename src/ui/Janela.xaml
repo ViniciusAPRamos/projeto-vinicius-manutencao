@@ -841,6 +841,58 @@
                 </Grid>
             </Border>
         </DataTemplate>
+
+        <!-- Processo (Por que está lento?): nome, barra, valor e "Finalizar" -->
+        <DataTemplate x:Key="ModeloProcesso">
+            <Grid Margin="0,6">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/><ColumnDefinition Width="70"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center" ToolTip="{Binding Texto}">
+                    <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text="{Binding Texto}" FontSize="11.5" Foreground="{DynamicResource TextoFraco}" TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+                <ProgressBar Grid.Column="1" Style="{StaticResource Barra}" Maximum="1" Value="{Binding Valor, Mode=OneWay}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                <TextBlock Grid.Column="2" Text="{Binding Extra}" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                <Button Grid.Column="3" Style="{StaticResource BtnLink}" Tag="{Binding Tag}" Content="{Binding Icone}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                        Visibility="{Binding TemIcone, Converter={StaticResource B2V}}"/>
+            </Grid>
+        </DataTemplate>
+
+        <!-- Item removível (apps, programas, repetidos): Extra = aviso amarelo, Nivel = valor à direita (tamanho), Icone = texto do botão, Tag = parâmetro do botão -->
+        <DataTemplate x:Key="ModeloRemovivel">
+            <Border Background="{DynamicResource Superficie}" BorderBrush="{DynamicResource Borda}" BorderThickness="1" CornerRadius="12" Padding="16,11" Margin="0,0,0,6">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding Texto}" Foreground="{DynamicResource TextoSec}" FontSize="12.5" TextWrapping="Wrap"/>
+                        <Grid Margin="0,4,0,0" Visibility="{Binding TemExtra, Converter={StaticResource B2V}}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="&#xE7BA;" Style="{StaticResource Icone}" FontSize="12" Foreground="{DynamicResource Aviso}" VerticalAlignment="Top" Margin="0,2,8,0"/>
+                            <TextBlock Grid.Column="1" Text="{Binding Extra}" Foreground="{DynamicResource Aviso}" FontSize="12.5" TextWrapping="Wrap"/>
+                        </Grid>
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Text="{Binding Nivel}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                    <Button Grid.Column="2" Style="{StaticResource BtnLink}" Tag="{Binding Tag}" Content="{Binding Icone}" Margin="14,0,0,0" VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <!-- Antes × depois (Histórico) -->
+        <DataTemplate x:Key="ModeloComparacao">
+            <Grid Margin="0,6">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="110"/><ColumnDefinition Width="110"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding Tag}" FontSize="11.5" Foreground="{DynamicResource TextoFraco}" TextWrapping="Wrap"/>
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="{Binding Texto}" Foreground="{DynamicResource TextoSec}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" Text="{Binding Extra}" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock Style="{StaticResource IconeNivel}" FontSize="13" Margin="0,0,6,0"/>
+                    <TextBlock Text="{Binding Icone}" FontSize="12.5" Foreground="{DynamicResource TextoSec}"/>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
     </Window.Resources>
 
     <Grid x:Name="Raiz">
@@ -895,6 +947,7 @@
                 <StackPanel>
                     <RadioButton x:Name="NavInicio" Style="{StaticResource Nav}" Tag="&#xE80F;" Content="Início" IsChecked="True"/>
                     <RadioButton x:Name="NavVerificar" Style="{StaticResource Nav}" Tag="&#xE721;" Content="Verificar o PC"/>
+                    <RadioButton x:Name="NavDiagnostico" Style="{StaticResource Nav}" Tag="&#xE9D9;" Content="Diagnóstico"/>
                     <RadioButton x:Name="NavOtimizar" Style="{StaticResource Nav}" Tag="&#xE9E9;" Content="Otimizar"/>
                     <RadioButton x:Name="NavVideo" Style="{StaticResource Nav}" Tag="&#xE7F4;" Content="Placa de vídeo"/>
                     <RadioButton x:Name="NavNotebook" Style="{StaticResource Nav}" Tag="&#xE7F8;" Content="Notebook"/>
@@ -1282,6 +1335,171 @@
                         </Border>
                     </Grid>
 
+                    <!-- ============ DIAGNÓSTICO ============ -->
+                    <Grid x:Name="PagDiagnostico" Visibility="Collapsed">
+                        <Grid.RenderTransform><TranslateTransform/></Grid.RenderTransform>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                        <StackPanel Margin="36,30,36,0">
+                            <TextBlock Style="{StaticResource Titulo}" Text="Diagnóstico"/>
+                            <TextBlock Style="{StaticResource Subtitulo}" Text="Descubra o motivo de um problema, em linguagem simples. Nada aqui altera o PC."/>
+                        </StackPanel>
+                        <WrapPanel Grid.Row="1" Margin="36,18,36,4">
+                            <RadioButton x:Name="RbDiagLento" Style="{StaticResource Pill}" GroupName="diag" IsChecked="True"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xEC4A;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Por que está lento?"/></StackPanel></RadioButton>
+                            <RadioButton x:Name="RbDiagBoot" Style="{StaticResource Pill}" GroupName="diag"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE916;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Tempo para ligar"/></StackPanel></RadioButton>
+                            <RadioButton x:Name="RbDiagEstab" Style="{StaticResource Pill}" GroupName="diag"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE7BA;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Travamentos e desligamentos"/></StackPanel></RadioButton>
+                            <RadioButton x:Name="RbDiagConexao" Style="{StaticResource Pill}" GroupName="diag"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE839;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Cabo e Wi-Fi"/></StackPanel></RadioButton>
+                            <RadioButton x:Name="RbDiagBios" Style="{StaticResource Pill}" GroupName="diag"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE950;" Style="{StaticResource IconeBtn}"/><TextBlock Text="BIOS e hardware"/></StackPanel></RadioButton>
+                        </WrapPanel>
+
+                        <Grid Grid.Row="2" Margin="36,8,36,24">
+                            <!-- Por que está lento? -->
+                            <ScrollViewer x:Name="DiagLento" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="Fotografia do momento" FontWeight="SemiBold" FontSize="15"/>
+                                                <TextBlock x:Name="TxtLentoStatus" Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,4,0,0" Text="Mede por 2 segundos quem está usando o processador, a memória e o disco. Se o PC fica lento só às vezes, clique enquanto a lentidão acontece."/>
+                                            </StackPanel>
+                                            <Button x:Name="BtnLentoAnalisar" Grid.Column="1" Style="{StaticResource BtnPrimario}" VerticalAlignment="Center" Margin="16,0,0,0">
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE721;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Analisar agora"/></StackPanel>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                    <UniformGrid Columns="3" Margin="0,0,0,14">
+                                        <Border Style="{StaticResource Card}" Margin="0,0,12,0">
+                                            <StackPanel>
+                                                <TextBlock Text="PROCESSADOR" Style="{StaticResource Rotulo}"/>
+                                                <TextBlock x:Name="TxtLentoCpu" Text="—" FontFamily="{DynamicResource FonteTitulo}" FontSize="34" FontWeight="SemiBold"/>
+                                                <ProgressBar x:Name="BarraLentoCpu" Style="{StaticResource Barra}" Maximum="100" Margin="0,6,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Style="{StaticResource Card}" Margin="0,0,12,0">
+                                            <StackPanel>
+                                                <TextBlock Text="MEMÓRIA RAM" Style="{StaticResource Rotulo}"/>
+                                                <TextBlock x:Name="TxtLentoRam" Text="—" FontFamily="{DynamicResource FonteTitulo}" FontSize="34" FontWeight="SemiBold"/>
+                                                <ProgressBar x:Name="BarraLentoRam" Style="{StaticResource Barra}" Maximum="100" Margin="0,6,0,0"/>
+                                                <TextBlock x:Name="TxtLentoRamSub" FontSize="12" Foreground="{DynamicResource TextoSec}" Margin="0,6,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Style="{StaticResource Card}">
+                                            <StackPanel>
+                                                <TextBlock Text="DISCO OCUPADO" Style="{StaticResource Rotulo}"/>
+                                                <TextBlock x:Name="TxtLentoDisco" Text="—" FontFamily="{DynamicResource FonteTitulo}" FontSize="34" FontWeight="SemiBold"/>
+                                                <ProgressBar x:Name="BarraLentoDisco" Style="{StaticResource Barra}" Maximum="100" Margin="0,6,0,0"/>
+                                                <TextBlock x:Name="TxtLentoDiscoSub" FontSize="12" Foreground="{DynamicResource TextoSec}" Margin="0,6,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </UniformGrid>
+                                    <TextBlock Text="O que encontramos" Style="{StaticResource Secao}" Margin="0,0,0,8"/>
+                                    <ItemsControl x:Name="ListaLento" ItemTemplate="{StaticResource ModeloSaude}" Margin="0,0,0,8"/>
+                                    <UniformGrid Columns="2">
+                                        <Border Style="{StaticResource Card}" Margin="0,0,12,0">
+                                            <StackPanel>
+                                                <TextBlock Text="Quem mais usa o processador" FontWeight="SemiBold" FontSize="15" Margin="0,0,0,6"/>
+                                                <ItemsControl x:Name="ListaLentoCpu" ItemTemplate="{StaticResource ModeloProcesso}"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Style="{StaticResource Card}">
+                                            <StackPanel>
+                                                <TextBlock Text="Quem mais usa a memória" FontWeight="SemiBold" FontSize="15" Margin="0,0,0,6"/>
+                                                <ItemsControl x:Name="ListaLentoRam" ItemTemplate="{StaticResource ModeloProcesso}"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </UniformGrid>
+                                </StackPanel>
+                            </ScrollViewer>
+                            <!-- Tempo para ligar -->
+                            <ScrollViewer x:Name="DiagBoot" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <Border Style="{StaticResource Card}" Margin="0,0,0,14" Padding="22,18">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <Border Width="56" Height="56" CornerRadius="16" Background="{DynamicResource AcentoSuave}"><TextBlock Text="&#xE916;" Style="{StaticResource Icone}" FontSize="24" Foreground="{DynamicResource Acento}" HorizontalAlignment="Center"/></Border>
+                                            <StackPanel Grid.Column="1" Margin="16,0" VerticalAlignment="Center">
+                                                <TextBlock x:Name="TxtBootUltimo" Text="Lendo..." FontFamily="{DynamicResource FonteTitulo}" FontSize="24" FontWeight="SemiBold"/>
+                                                <TextBlock x:Name="TxtBootSub" Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,4,0,0"/>
+                                            </StackPanel>
+                                            <Button x:Name="BtnBootAtualizar" Grid.Column="2" Style="{StaticResource BtnSecundario}" VerticalAlignment="Center">
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Atualizar"/></StackPanel>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                    <Border x:Name="CardBootLista" Style="{StaticResource Card}" Margin="0,0,0,14">
+                                        <StackPanel>
+                                            <TextBlock Text="Últimas inicializações" FontWeight="SemiBold" FontSize="15"/>
+                                            <TextBlock Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,4,0,10" Text="Segundos do botão de ligar até a área de trabalho aparecer. O Windows só mede quando você usa Reiniciar ou com a Inicialização rápida desligada."/>
+                                            <ItemsControl x:Name="ListaBoot" ItemTemplate="{StaticResource ModeloBarra}"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <TextBlock x:Name="TxtBootAtrasosTitulo" Text="O que atrasou a inicialização (últimos 60 dias)" Style="{StaticResource Secao}" Margin="0,0,0,8"/>
+                                    <ItemsControl x:Name="ListaBootAtrasos" ItemTemplate="{StaticResource ModeloSaude}"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                            <!-- Travamentos -->
+                            <ScrollViewer x:Name="DiagEstab" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <Border Style="{StaticResource Card}" Margin="0,0,0,14" Padding="22,18">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center" MinWidth="90">
+                                                <TextBlock x:Name="TxtEstabIndice" Text="—" FontFamily="{DynamicResource FonteTitulo}" FontSize="40" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                                <TextBlock Text="de 10" Foreground="{DynamicResource TextoSec}" FontSize="12" HorizontalAlignment="Center"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Margin="18,0" VerticalAlignment="Center">
+                                                <TextBlock x:Name="TxtEstabTitulo" Text="Lendo os registros do Windows..." FontWeight="SemiBold" FontSize="16"/>
+                                                <TextBlock Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,4,0,0" Text="Últimos 30 dias: desligamentos sem fechar o Windows, telas azuis, erros de hardware e programas que fecharam com erro."/>
+                                            </StackPanel>
+                                            <Button x:Name="BtnEstabMonitor" Grid.Column="2" Style="{StaticResource BtnSecundario}" VerticalAlignment="Center">
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE9D9;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Monitor de Confiabilidade"/></StackPanel>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                    <ItemsControl x:Name="ListaEstab" ItemTemplate="{StaticResource ModeloSaude}" Margin="0,0,0,8"/>
+                                    <TextBlock x:Name="TxtEstabAppsTitulo" Text="Programas que fecharam com erro ou travaram" Style="{StaticResource Secao}" Margin="0,8,0,8"/>
+                                    <ItemsControl x:Name="ListaEstabApps" ItemTemplate="{StaticResource ModeloSaude}"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                            <!-- Cabo e Wi-Fi -->
+                            <ScrollViewer x:Name="DiagConexao" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="A conexão física está boa?" FontWeight="SemiBold" FontSize="15"/>
+                                                <TextBlock Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,4,0,0" Text="Confere a velocidade em que a placa de rede negociou com o roteador (cabo ruim costuma derrubar para 100 Mbps) e o sinal do Wi-Fi. Para quedas da internet, use Ferramentas > Monitor de conexão."/>
+                                            </StackPanel>
+                                            <Button x:Name="BtnConexaoAtualizar" Grid.Column="1" Style="{StaticResource BtnSecundario}" VerticalAlignment="Center" Margin="16,0,0,0">
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Verificar de novo"/></StackPanel>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                    <ItemsControl x:Name="ListaConexao" ItemTemplate="{StaticResource ModeloSaude}"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                            <!-- BIOS e hardware -->
+                            <ScrollViewer x:Name="DiagBios" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="Checklist da BIOS" FontWeight="SemiBold" FontSize="15"/>
+                                                <TextBlock Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,4,0,0" Text="Recursos que só se ligam na BIOS (a tela que aparece ao ligar o PC). O otimizador não altera a BIOS: ele mostra o que vale a pena conferir e onde fica cada opção."/>
+                                            </StackPanel>
+                                            <Button x:Name="BtnBiosReiniciar" Grid.Column="1" Style="{StaticResource BtnSecundario}" VerticalAlignment="Center" Margin="16,0,0,0">
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE7E8;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Reiniciar direto na BIOS"/></StackPanel>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                    <ItemsControl x:Name="ListaBios" ItemTemplate="{StaticResource ModeloSaude}"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </Grid>
+
                     <!-- ============ FERRAMENTAS ============ -->
                     <Grid x:Name="PagFerramentas" Visibility="Collapsed">
                         <Grid.RenderTransform><TranslateTransform/></Grid.RenderTransform>
@@ -1310,6 +1528,7 @@
                                     <RadioButton x:Name="RbFerReparo" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE90F;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Reparar Windows"/></StackPanel></RadioButton>
                                     <RadioButton x:Name="RbFerManut" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE81C;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Manutenção automática"/></StackPanel></RadioButton>
                                     <RadioButton x:Name="RbFerRelatorio" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE9D9;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Relatório do PC"/></StackPanel></RadioButton>
+                                    <RadioButton x:Name="RbFerJogo" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE7FC;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Modo jogo"/></StackPanel></RadioButton>
                                 </WrapPanel>
                             </Grid>
                             <Grid Margin="0,0,0,2">
@@ -1317,6 +1536,7 @@
                                 <TextBlock Text="PROGRAMAS E PROTEÇÃO" Style="{StaticResource Rotulo}" VerticalAlignment="Top" Margin="0,10,0,0"/>
                                 <WrapPanel Grid.Column="1">
                                     <RadioButton x:Name="RbFerProgramas" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE896;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Programas"/></StackPanel></RadioButton>
+                                    <RadioButton x:Name="RbFerApps" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE71D;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Apps do Windows"/></StackPanel></RadioButton>
                                     <RadioButton x:Name="RbFerOffice" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8A5;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Desinstalar Office"/></StackPanel></RadioButton>
                                     <RadioButton x:Name="RbFerProtecao" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72E;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Proteção (antivírus)"/></StackPanel></RadioButton>
                                 </WrapPanel>
@@ -1328,6 +1548,7 @@
                                     <RadioButton x:Name="RbFerSuporte" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE77B;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Suporte técnico"/></StackPanel></RadioButton>
                                     <RadioButton x:Name="RbFerSerial" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE88E;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Drivers e portas COM"/></StackPanel></RadioButton>
                                     <RadioButton x:Name="RbFerAtalhos" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8A7;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Atalhos do Windows"/></StackPanel></RadioButton>
+                                    <RadioButton x:Name="RbFerFrota" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE7F4;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Vários PCs"/></StackPanel></RadioButton>
                                 </WrapPanel>
                             </Grid>
                         </StackPanel>
@@ -2084,6 +2305,172 @@
                                             </ItemsControl>
                                         </StackPanel>
                                     </Border>
+                                    <Border Style="{StaticResource Card}" Margin="0,14,0,0">
+                                        <StackPanel>
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="Arquivos repetidos" FontWeight="SemiBold" FontSize="15"/>
+                                                    <TextBlock x:Name="TxtDupStatus" Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,4,0,0" Text="Procura arquivos iguais (mesmo conteúdo, não só o mesmo nome) em Downloads, Documentos, Imagens, Vídeos, Músicas e Área de Trabalho. As cópias vão para a Lixeira: dá para recuperar."/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="16,0,0,0">
+                                                    <Button x:Name="BtnDupTodos" Style="{StaticResource BtnFantasma}" Margin="0,0,8,0" Visibility="Collapsed">
+                                                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE74D;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Todas as cópias para a Lixeira"/></StackPanel>
+                                                    </Button>
+                                                    <Button x:Name="BtnDupProcurar" Style="{StaticResource BtnSecundario}">
+                                                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE721;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Procurar"/></StackPanel>
+                                                    </Button>
+                                                </StackPanel>
+                                            </Grid>
+                                            <ItemsControl x:Name="ListaDup" ItemTemplate="{StaticResource ModeloRemovivel}" Margin="0,10,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Style="{StaticResource Card}" Margin="0,14,0,0">
+                                        <StackPanel>
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="Programas que mais ocupam espaço" FontWeight="SemiBold" FontSize="15"/>
+                                                    <TextBlock x:Name="TxtProgTamStatus" Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,4,0,0" Text="Tamanho informado pelo instalador de cada programa (pode não incluir jogos baixados por launchers)."/>
+                                                </StackPanel>
+                                                <Button x:Name="BtnProgTamApps" Grid.Column="1" Style="{StaticResource BtnFantasma}" VerticalAlignment="Top" Margin="16,0,0,0">
+                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE71D;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Aplicativos instalados"/></StackPanel>
+                                                </Button>
+                                            </Grid>
+                                            <ItemsControl x:Name="ListaProgTam" ItemTemplate="{StaticResource ModeloRemovivel}" Margin="0,10,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
+                            <!-- Modo jogo agora -->
+                            <ScrollViewer x:Name="FerJogo" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <Border Style="{StaticResource Card}" Margin="0,0,0,14" Padding="22,18">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <Border x:Name="CirculoJogo" Width="56" Height="56" CornerRadius="16" Background="{DynamicResource Superficie2}"><TextBlock x:Name="IcoJogo" Text="&#xE7FC;" Style="{StaticResource Icone}" FontSize="24" Foreground="{DynamicResource TextoSec}" HorizontalAlignment="Center"/></Border>
+                                            <StackPanel Grid.Column="1" Margin="16,0" VerticalAlignment="Center">
+                                                <TextBlock x:Name="TxtJogoTitulo" Text="Modo jogo desligado" FontFamily="{DynamicResource FonteTitulo}" FontSize="20" FontWeight="SemiBold"/>
+                                                <TextBlock x:Name="TxtJogoSub" Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,4,0,0" Text="Antes de jogar, fecha os programas que você escolher e coloca o PC em desempenho máximo. Ao terminar, volta tudo como estava."/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Button x:Name="BtnJogoAtivar" Style="{StaticResource BtnPrimario}">
+                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE768;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Ativar modo jogo"/></StackPanel>
+                                                </Button>
+                                                <Button x:Name="BtnJogoDesativar" Style="{StaticResource BtnSecundario}" Visibility="Collapsed">
+                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE71A;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Terminei de jogar"/></StackPanel>
+                                                </Button>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                    <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                                        <StackPanel>
+                                            <Grid Margin="0,0,0,8">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Programas abertos agora: marque os que devem fechar" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center"/>
+                                                <Button x:Name="BtnJogoAtualizar" Grid.Column="1" Style="{StaticResource BtnFantasma}" Padding="10,5">
+                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource IconeBtn}" FontSize="12"/><TextBlock Text="Atualizar"/></StackPanel>
+                                                </Button>
+                                            </Grid>
+                                            <ItemsControl x:Name="ListaJogo">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,5">
+                                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+                                                            <CheckBox Style="{StaticResource Caixa}" IsChecked="{Binding Marcado, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                                            <StackPanel Grid.Column="1">
+                                                                <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                                <TextBlock Text="{Binding Texto}" FontSize="11.5" Foreground="{DynamicResource TextoFraco}" TextTrimming="CharacterEllipsis"/>
+                                                            </StackPanel>
+                                                            <TextBlock Grid.Column="2" Text="{Binding Extra}" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <TextBlock x:Name="TxtJogoVazio" Style="{StaticResource CorpoSec}" FontSize="13" Visibility="Collapsed" Text="Nenhum programa aberto que valha a pena fechar."/>
+                                            <Border Height="1" Background="{DynamicResource Borda}" Margin="0,12"/>
+                                            <CheckBox x:Name="ChkJogoPlano" Style="{StaticResource Interruptor}" IsChecked="True" Content="Colocar o PC em desempenho máximo enquanto joga (volta ao plano atual ao terminar)"/>
+                                            <CheckBox x:Name="ChkJogoReabrir" Style="{StaticResource Interruptor}" IsChecked="True" Margin="0,8,0,0" Content="Reabrir os programas fechados quando eu terminar"/>
+                                            <TextBlock Style="{StaticResource CorpoSec}" FontSize="12.5" Margin="0,10,0,0" Text="Os programas são fechados como se você clicasse no X: se algum perguntar se quer salvar, ele espera a sua resposta. Launchers de jogos e o Discord não aparecem na lista."/>
+                                        </StackPanel>
+                                    </Border>
+                                    <ItemsControl x:Name="ListaJogoRes" ItemTemplate="{StaticResource ModeloSaude}"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                            <!-- Apps que vieram com o Windows -->
+                            <ScrollViewer x:Name="FerApps" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                                        <StackPanel>
+                                            <TextBlock Text="Apps que vieram com o Windows ou com o PC" FontWeight="SemiBold" FontSize="15"/>
+                                            <TextBlock x:Name="TxtAppsStatus" Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,4,0,0" Text="Procurando..."/>
+                                        </StackPanel>
+                                    </Border>
+                                    <ItemsControl x:Name="ListaApps" ItemTemplate="{StaticResource ModeloRemovivel}"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                            <!-- Vários PCs (inventário) -->
+                            <ScrollViewer x:Name="FerFrota" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                                        <StackPanel>
+                                            <TextBlock Text="Inventário de vários PCs" FontWeight="SemiBold" FontSize="15"/>
+                                            <TextBlock Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,4,0,12" Text="Cada PC grava um resumo (hardware, nota, estabilidade e alertas) numa pasta compartilhada. Aqui você compara todos lado a lado, do pior para o melhor, e exporta uma planilha."/>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Pasta:" VerticalAlignment="Center" Foreground="{DynamicResource TextoSec}" Margin="0,0,10,0"/>
+                                                <TextBox x:Name="TxtFrotaPasta" Grid.Column="1" Style="{StaticResource Campo}"/>
+                                                <Button x:Name="BtnFrotaEscolher" Grid.Column="2" Style="{StaticResource BtnFantasma}" Margin="8,0,0,0">
+                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8B7;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Escolher"/></StackPanel>
+                                                </Button>
+                                            </Grid>
+                                            <WrapPanel Margin="0,12,0,0">
+                                                <Button x:Name="BtnFrotaSalvar" Style="{StaticResource BtnPrimario}" Margin="0,0,8,0">
+                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE74E;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Salvar este PC na pasta"/></StackPanel>
+                                                </Button>
+                                                <Button x:Name="BtnFrotaAtualizar" Style="{StaticResource BtnSecundario}" Margin="0,0,8,0">
+                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Ler a pasta"/></StackPanel>
+                                                </Button>
+                                                <Button x:Name="BtnFrotaCsv" Style="{StaticResource BtnSecundario}" Margin="0,0,8,0">
+                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8A5;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Exportar planilha"/></StackPanel>
+                                                </Button>
+                                                <Button x:Name="BtnFrotaAbrir" Style="{StaticResource BtnFantasma}">
+                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8A7;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Abrir pasta"/></StackPanel>
+                                                </Button>
+                                            </WrapPanel>
+                                            <TextBlock Style="{StaticResource CorpoSec}" FontSize="12.5" Margin="0,12,0,0" TextWrapping="Wrap">
+                                                <Run Text="Nos outros PCs, sem abrir a janela:"/>
+                                                <Run Text="Inventario-PC.bat \\servidor\pasta" FontFamily="{DynamicResource FonteCodigo}" Foreground="{DynamicResource Acento}"/>
+                                                <Run Text=" (não pede administrador; dá para colocar no logon ou no Agendador de Tarefas)."/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Border>
+                                    <TextBlock x:Name="TxtFrotaStatus" Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,0,0,8" Text="Escolha a pasta e clique em Ler a pasta."/>
+                                    <ItemsControl x:Name="ListaFrota">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{DynamicResource Superficie}" BorderBrush="{DynamicResource Borda}" BorderThickness="1" CornerRadius="12" Padding="16,11" Margin="0,0,0,6">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                        <TextBlock Style="{StaticResource IconeNivel}" Margin="0,2,14,0" VerticalAlignment="Top"/>
+                                                        <StackPanel Grid.Column="1">
+                                                            <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold"/>
+                                                            <TextBlock Text="{Binding Texto}" Foreground="{DynamicResource TextoSec}" FontSize="12.5" TextWrapping="Wrap"/>
+                                                            <ItemsControl ItemsSource="{Binding Filhos}" Margin="0,4,0,0">
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <TextBlock Text="{Binding Titulo}" Foreground="{DynamicResource Aviso}" FontSize="12" TextWrapping="Wrap"/>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="2" Margin="14,0,0,0" VerticalAlignment="Top">
+                                                            <TextBlock Text="{Binding Extra}" FontFamily="{DynamicResource FonteTitulo}" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                                                            <TextBlock Text="{Binding Tag}" FontSize="11.5" Foreground="{DynamicResource TextoFraco}" HorizontalAlignment="Right"/>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                 </StackPanel>
                             </ScrollViewer>
                             <!-- Proteção (antivírus) -->
@@ -2629,6 +3016,32 @@
                         </UniformGrid>
                         <ScrollViewer Grid.Row="2" Margin="36,14,36,24" VerticalScrollBarVisibility="Auto">
                             <StackPanel>
+                                <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="Antes × depois da otimização" FontWeight="SemiBold" FontSize="15"/>
+                                                <TextBlock x:Name="TxtCompSub" Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,4,0,0" Text="Medindo..."/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="16,0,0,0">
+                                                <Button x:Name="BtnCompNova" Style="{StaticResource BtnFantasma}" Margin="0,0,8,0" Visibility="Collapsed">
+                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE81C;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Nova referência"/></StackPanel>
+                                                </Button>
+                                                <Button x:Name="BtnCompMedir" Style="{StaticResource BtnSecundario}">
+                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource IconeBtn}"/><TextBlock x:Name="TxtCompMedir" Text="Medir agora"/></StackPanel>
+                                                </Button>
+                                            </StackPanel>
+                                        </Grid>
+                                        <Grid x:Name="CabecalhoComp" Margin="0,12,0,2" Visibility="Collapsed">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="110"/><ColumnDefinition Width="110"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="1" Text="ANTES" Style="{StaticResource Rotulo}" HorizontalAlignment="Right"/>
+                                            <TextBlock Grid.Column="2" Text="AGORA" Style="{StaticResource Rotulo}" HorizontalAlignment="Right"/>
+                                            <TextBlock Grid.Column="3" Text="DIFERENÇA" Style="{StaticResource Rotulo}" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                        <ItemsControl x:Name="ListaComparacao" ItemTemplate="{StaticResource ModeloComparacao}"/>
+                                    </StackPanel>
+                                </Border>
                                 <TextBlock x:Name="TxtHistoricoVazio" Text="Nada por aqui ainda. Quando você aplicar ou desfazer ajustes, cada execução aparece nesta lista." Foreground="{DynamicResource TextoSec}" TextWrapping="Wrap" Margin="0,8,0,0"/>
                                 <ItemsControl x:Name="ListaHistorico">
                                     <ItemsControl.ItemTemplate>

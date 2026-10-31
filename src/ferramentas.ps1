@@ -683,3 +683,61 @@ function Get-ArquivosGrandes([int]$Quantidade = 15, [long]$MinBytes = 300MB) {
         [pscustomobject]@{ Nome = $_.Name; Pasta = $_.DirectoryName; Caminho = $_.FullName; Bytes = [double]$_.Length; Data = $_.LastWriteTime; Dica = $dica }
     })
 }
+# Arquivos repetidos nas pastas do usuário (mesmo tamanho e mesmo conteúdo).
+# Arquivos só na nuvem (OneDrive "sob demanda") são pulados para não baixá-los.
+function Get-ArquivosDuplicados([long]$MinBytes = 1MB, [int]$MaxGrupos = 30) {
+    $u = $env:USERPROFILE
+    $down = Join-Path $u 'Downloads'
+    try { $d = (New-Object -ComObject Shell.Application).NameSpace('shell:Downloads').Self.Path; if ($d) { $down = $d } } catch { }
+    $pastas = @($down, [Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('MyDocuments'), [Environment]::GetFolderPath('MyPictures'), [Environment]::GetFolderPath('MyVideos'), [Environment]::GetFolderPath('MyMusic')) |
+        Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
+    Send-Evento @{ Tipo = 'log'; Texto = "Procurando arquivos repetidos em $($pastas.Count) pasta(s)..." }
+    $nuvem = 0x00400000 -bor 0x00001000 -bor 0x00040000   # RECALL_ON_DATA_ACCESS | OFFLINE | RECALL_ON_OPEN
+    $porTamanho = @{}
+    foreach ($p in $pastas) {
+        foreach ($f in @(Get-ChildItem $p -Recurse -File -Force -ErrorAction SilentlyContinue)) {
+            if ($f.Length -lt $MinBytes -or ([int]$f.Attributes -band $nuvem)) { continue }
+            if (-not $porTamanho.ContainsKey($f.Length)) { $porTamanho[$f.Length] = New-Object System.Collections.Generic.List[object] }
+            $porTamanho[$f.Length].Add($f)
+        }
+    }
+    $grupos = New-Object System.Collections.Generic.List[object]
+    foreach ($tam in $porTamanho.Keys) {
+        $cands = $porTamanho[$tam]
+        if ($cands.Count -lt 2) { continue }
+        $porHash = @{}
+        foreach ($f in $cands) {
+            try { $h = (Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256 -ErrorAction Stop).Hash } catch { continue }
+            if (-not $porHash.ContainsKey($h)) { $porHash[$h] = New-Object System.Collections.Generic.List[object] }
+            $porHash[$h].Add($f)
+        }
+        foreach ($h in $porHash.Keys) {
+            $iguais = $porHash[$h]
+            if ($iguais.Count -lt 2) { continue }
+            # Mantém a cópia fora de Downloads, se houver; senão a mais antiga
+            $ordenados = @($iguais | Sort-Object @{ Expression = { $_.FullName -like "$down\*" } }, CreationTime)
+            $r = [ordered]@{}
+            $r.Nome = $ordenados[0].Name
+            $r.Bytes = [double]$tam
+            $r.Manter = $ordenados[0].FullName
+            $r.Copias = [string[]]@($ordenados | Select-Object -Skip 1 | ForEach-Object FullName)
+            $r.Desperdicio = [double]$tam * ($iguais.Count - 1)
+            $grupos.Add([pscustomobject]$r)
+        }
+    }
+    return @($grupos | Sort-Object Desperdicio -Descending | Select-Object -First $MaxGrupos)
+}
+
+# Envia para a Lixeira (dá para recuperar), nunca apaga direto
+function Move-ParaLixeira([string[]]$Caminhos) {
+    Add-Type -AssemblyName Microsoft.VisualBasic
+    $ok = 0; $erros = New-Object System.Collections.Generic.List[string]
+    foreach ($c in $Caminhos) {
+        try {
+            [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($c, [Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs, [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin)
+            $ok++
+            Write-Log "Enviado para a Lixeira: $c"
+        } catch { $erros.Add("$(Split-Path $c -Leaf): $($_.Exception.Message)") }
+    }
+    return @{ Ok = $ok; Erros = $erros.ToArray() }
+}

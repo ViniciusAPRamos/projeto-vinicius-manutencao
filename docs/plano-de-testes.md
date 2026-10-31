@@ -62,5 +62,24 @@ O log fica em `Documentos\OtimizadorVinicius\log_<data>.txt` (Histórico > Log d
 - [ ] Navegadores: aplicar os 4 itens e conferir em `edge://policy` e `chrome://policy` (aparecem como obrigatórios); desfazer e conferir que somem.
 - [ ] Temperaturas: rodar um jogo e ver a GPU subir; trocar de aba e confirmar que a leitura para.
 
+## Fase 5d: diagnóstico e ferramentas da 5ª rodada
+- [ ] Diagnóstico > Por que está lento?: abrir um jogo ou vídeo pesado e clicar em Analisar; o programa aparece no topo e "Finalizar" pede confirmação.
+- [ ] Diagnóstico > Tempo para ligar **com administrador**: Reiniciar o PC (não Desligar) e conferir os segundos e a lista "O que atrasou" (valida os campos BootTime/MainPathBootTime e FriendlyName/DegradationTime do log).
+- [ ] Diagnóstico > Travamentos: o número de desligamentos confere com o Visualizador de Eventos (Sistema, Kernel-Power 41).
+- [ ] Diagnóstico > BIOS **com administrador**: o TPM aparece como 2.0; comparar o Resizable BAR com o Painel NVIDIA > Informações do sistema.
+- [ ] "Reiniciar direto na BIOS" entra na BIOS (shutdown /r /fw).
+- [ ] **Num notebook com Wi-Fi:** Diagnóstico > Cabo e Wi-Fi mostra sinal %, faixa (2,4/5 GHz) e taxa (valida o `netsh wlan show interfaces` em português).
+- [ ] Ajuste "Arquivo de paginação gerenciado pelo Windows": num PC de teste, fixar a memória virtual em 512 MB à mão, aplicar, reiniciar e conferir; desfazer volta os 512 MB (valida o New-CimInstance Win32_PageFileSetting).
+- [ ] Ajuste "TRIM e otimização semanal": desligar com `fsutil behavior set DisableDeleteNotify 1`, aplicar e conferir 0; desfazer volta 1.
+- [ ] Limpeza "Versões antigas de componentes (WinSxS)": Simular mostra tamanho e recomendação; aplicar e conferir o espaço liberado.
+- [ ] "Otimizar os SSDs agora": aplicar e conferir no Visualizador de Eventos (Aplicativo, Defrag) ou em "Otimizar unidades" a data da última execução.
+- [ ] "Apps da Store não rodam em segundo plano": conferir em Configurações que a opção fica bloqueada; desfazer libera.
+- [ ] Ferramentas > Apps do Windows: remover um app sem importância (ex.: Dicas) e reinstalar pela Store.
+- [ ] Ferramentas > Modo jogo: marcar o navegador, ativar (fecha e troca o plano), Terminei de jogar (volta o plano e reabre).
+- [ ] Espaço em disco > Arquivos repetidos: mandar uma cópia para a Lixeira e restaurar pela Lixeira.
+- [ ] Espaço em disco > Programas que mais ocupam: "Desinstalar" abre o desinstalador do programa (testar com um MSI e com um .exe).
+- [ ] `src\Inventario-PC.bat <pasta>` sem administrador grava o .json; Ferramentas > Vários PCs lê a pasta e exporta a planilha (abre certo no Excel).
+- [ ] Histórico > Antes × depois: aplicar algo pela primeira vez grava a referência; depois de reiniciar, o tempo para ligar aparece nas duas colunas.
+
 ## Fase 6: desfazer tudo
 - [ ] Histórico > Desfazer todos. Conferir que os itens voltam para "Pendente" (exceto os que já estavam aplicados antes do otimizador).

@@ -35,6 +35,13 @@ $Script:Glossario = @(
     @{ Termo = 'Winget';                Busca = 'winget';                             Explicacao = 'Instalador oficial de programas do Windows: baixa direto do site do fabricante.' }
     @{ Termo = 'Proteção contra adulteração'; Busca = 'adulteração|Tamper';           Explicacao = 'Trava do Microsoft Defender que impede que programas desliguem a proteção sem você clicar.' }
     @{ Termo = 'Modern Standby';        Busca = 'Modern Standby';                     Explicacao = 'Modo de suspensão de notebooks recentes, que funciona como o de um celular.' }
+    @{ Termo = 'TRIM';                  Busca = '\bTRIM\b';                           Explicacao = 'Aviso que o Windows manda ao SSD dizendo quais blocos foram apagados. Mantém o SSD rápido com o passar do tempo.' }
+    @{ Termo = 'Arquivo de paginação';  Busca = 'pagina[çc][ãa]o|pagefile|mem[óo]ria virtual'; Explicacao = 'Parte do disco que o Windows usa como memória reserva quando a RAM enche. Sem ele, programas fecham com "memória insuficiente".' }
+    @{ Termo = 'WinSxS';                Busca = 'WinSxS|componentes do Windows';      Explicacao = 'Pasta onde o Windows guarda as versões dos seus próprios arquivos, inclusive as antigas que as atualizações substituíram.' }
+    @{ Termo = 'BIOS / UEFI';           Busca = '\bBIOS\b|\bUEFI\b';                  Explicacao = 'Programa da placa-mãe que liga o PC antes do Windows. Configurações de memória, Secure Boot e Resizable BAR ficam nele.' }
+    @{ Termo = 'Secure Boot';           Busca = 'Secure Boot';                        Explicacao = 'Proteção da BIOS que só deixa iniciar sistemas assinados. Alguns anti-cheats de jogos exigem.' }
+    @{ Termo = 'TPM';                   Busca = '\bTPM\b|fTPM|\bPTT\b';               Explicacao = 'Chip (ou função do processador) que guarda chaves de segurança. O Windows 11 exige TPM 2.0.' }
+    @{ Termo = 'Resizable BAR';         Busca = 'Resizable BAR|Smart Access Memory';  Explicacao = 'Permite ao processador acessar toda a memória da placa de vídeo de uma vez. Dá alguns % de FPS em vários jogos.' }
 )
 
 # Monta o texto "Termo: explicação" das palavras que aparecem num texto (até 4)

@@ -119,4 +119,65 @@ $semDesfazer = 'Ação única, não tem desfazer. São arquivos que os programas
         }
         Aplicar      = { return (Clear-CacheWindowsUpdate) }
     }
+    @{
+        Id           = 'limpeza.componentes'
+        Categoria    = $cat
+        Tipo         = 'acao'
+        Nome         = 'Limpar versões antigas de componentes do Windows (WinSxS)'
+        Resumo       = 'Remove cópias antigas de arquivos do Windows que as atualizações já substituíram. Costuma liberar de 1 a 5 GB.'
+        Detalhe      = 'Executa a limpeza oficial do repositório de componentes (DISM). O Windows já faz isso sozinho de tempos em tempos, com atraso de 30 dias; aqui é imediato. Não usa a opção /ResetBase: as atualizações instaladas continuam podendo ser desinstaladas.'
+        Indicado     = 'Disco do sistema cheio, ou depois de uma atualização grande do Windows.'
+        Atencao      = 'Demora de 5 a 20 minutos e usa bastante o disco. Não desligue o PC no meio. Use "Simular" para ver antes quanto dá para liberar (leva cerca de 1 minuto).'
+        Risco        = 'seguro'
+        Perfis       = @()
+        ComoDesfazer = 'Ação única. São versões antigas que o Windows não usa mais.'
+        Tecnico      = "Dism.exe /Online /Cleanup-Image /AnalyzeComponentStore   (simular)`nDism.exe /Online /Cleanup-Image /StartComponentCleanup   (aplicar)"
+        Detectar     = { return @{ Estado = 'acao'; Texto = 'use Simular para medir' } }
+        Simular      = {
+            $saida = @(Dism.exe /English /Online /Cleanup-Image /AnalyzeComponentStore 2>&1)
+            if ($LASTEXITCODE -ne 0) { "⚠ O DISM não conseguiu analisar (código $LASTEXITCODE). Precisa de administrador."; return }
+            $tam = ($saida | Where-Object { $_ -match 'Actual Size of Component Store\s*:\s*(.+)' } | Select-Object -First 1) -replace '.*:\s*', ''
+            $recl = ($saida | Where-Object { $_ -match 'Number of Reclaimable Packages\s*:\s*(\d+)' } | Select-Object -First 1) -replace '.*:\s*', ''
+            $rec = ($saida | Where-Object { $_ -match 'Component Store Cleanup Recommended\s*:\s*(\w+)' } | Select-Object -First 1) -replace '.*:\s*', ''
+            "→ Tamanho real da pasta WinSxS: $tam"
+            "→ Pacotes antigos que podem sair: $recl"
+            if ($rec -eq 'Yes') { '→ O Windows RECOMENDA a limpeza agora.' } else { '= O Windows diz que a limpeza não é necessária agora.' }
+        }
+        Aplicar      = {
+            $vol = Get-Volume -DriveLetter $env:SystemDrive.Substring(0, 1)
+            $antes = [double]$vol.SizeRemaining
+            $saida = @(Dism.exe /Online /Cleanup-Image /StartComponentCleanup 2>&1)
+            if ($LASTEXITCODE -ne 0) { return @{ Status = 'erro'; Mensagem = "DISM terminou com código $($LASTEXITCODE): $(($saida | Select-Object -Last 2) -join ' ')" } }
+            $depois = [double](Get-Volume -DriveLetter $env:SystemDrive.Substring(0, 1)).SizeRemaining
+            return @{ Status = 'ok'; Mensagem = "Limpeza concluída. Liberados cerca de $(Format-Tamanho ([math]::Max(0, $depois - $antes)))." }
+        }
+    }
+    @{
+        Id           = 'limpeza.retrim'
+        Categoria    = $cat
+        Tipo         = 'acao'
+        Nome         = 'Otimizar os SSDs agora (TRIM)'
+        Resumo       = 'Avisa o SSD de todo o espaço livre de uma vez. Útil depois de apagar muitos arquivos.'
+        Detalhe      = 'Executa a mesma otimização que o Windows faz uma vez por semana em "Otimizar unidades", só nos SSDs. Não é desfragmentação: não desgasta o SSD.'
+        Indicado     = 'Depois de uma limpeza grande, ou se a otimização semanal estava desligada.'
+        Risco        = 'seguro'
+        Perfis       = @()
+        Requisito    = { if (-not @(Get-PhysicalDisk -ErrorAction SilentlyContinue | Where-Object { [string]$_.MediaType -eq 'SSD' -or [string]$_.BusType -eq 'NVMe' }).Count) { 'Este PC não tem SSD.' } }
+        ComoDesfazer = 'Ação única, sem nada a desfazer.'
+        Tecnico      = 'Optimize-Volume -DriveLetter <letra> -ReTrim   (para cada volume em SSD)'
+        Detectar     = { return @{ Estado = 'acao'; Texto = '' } }
+        Aplicar      = {
+            $ssd = @{}
+            foreach ($d in @(Get-PhysicalDisk -ErrorAction SilentlyContinue)) { if ([string]$d.MediaType -eq 'SSD' -or [string]$d.BusType -eq 'NVMe') { $ssd[[string]$d.DeviceId] = $true } }
+            $feitos = @(); $falhas = @()
+            foreach ($v in @(Get-Volume -ErrorAction SilentlyContinue | Where-Object { $_.DriveLetter -and $_.DriveType -eq 'Fixed' -and $_.FileSystem -eq 'NTFS' })) {
+                $num = (Get-Partition -DriveLetter $v.DriveLetter -ErrorAction SilentlyContinue).DiskNumber
+                if (-not $ssd.ContainsKey([string]$num)) { continue }
+                try { Optimize-Volume -DriveLetter $v.DriveLetter -ReTrim -ErrorAction Stop; $feitos += "$($v.DriveLetter):" } catch { $falhas += "$($v.DriveLetter): $($_.Exception.Message)" }
+            }
+            if ($falhas.Count) { return @{ Status = 'erro'; Mensagem = "Falhou em $($falhas -join '; ')" } }
+            if (-not $feitos.Count) { return @{ Status = 'aviso'; Mensagem = 'Nenhum volume NTFS em SSD encontrado.' } }
+            return @{ Status = 'ok'; Mensagem = "TRIM enviado em $($feitos -join ', ')." }
+        }
+    }
 )

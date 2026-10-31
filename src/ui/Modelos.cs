@@ -180,6 +180,8 @@ namespace Otz
         public double Valor { get; set; }     // barras (DNS)
         public bool TemTexto { get { return !string.IsNullOrEmpty(Texto); } }
         public bool TemExtra { get { return !string.IsNullOrEmpty(Extra); } }
+        public bool TemIcone { get { return !string.IsNullOrEmpty(Icone); } }
+        public bool TemFilhos { get { var a = _filhos as System.Array; return a != null && a.Length > 0; } }
 
         bool _marcado;
         public bool Marcado { get { return _marcado; } set { Definir(ref _marcado, value); } }

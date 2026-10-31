@@ -21,15 +21,18 @@ O menu de texto antigo (v1.1) continua em `src\Executar-Modo-Texto.bat`.
 1. Num PC, marque os ajustes em **Otimizar** e clique em **Exportar** (gera um `.json`).
 2. Em cada outro PC, com a pasta do otimizador: `src\Aplicar-Perfil.bat perfil.json`
    (ou `Aplicar-Perfil.bat trabalho` para um perfil pronto). Aplica sem abrir a janela e mostra o resumo.
+3. Para acompanhar os PCs: `src\Inventario-PC.bat \\servidor\pasta` em cada um (não pede administrador) e **Ferramentas > Vários PCs** para comparar todos e exportar a planilha.
 
 ## O que tem
 
 - **Verificar o PC:** nota de 0 a 100, o que já está otimizado e a saúde do sistema, com botão para resolver cada ponto.
-- **73 ajustes** em 14 categorias, incluindo placa de vídeo, notebook, serviços e navegadores.
+- **Diagnóstico** (só leitura): "Por que está lento?" (quem usa processador, memória e disco agora, com explicação), tempo para ligar e o que atrasou, travamentos/telas azuis/desligamentos inesperados, cabo e Wi-Fi, checklist da BIOS (XMP, Resizable BAR, Secure Boot, TPM).
+- **78 ajustes** em 14 categorias, incluindo placa de vídeo, notebook, serviços, navegadores, memória virtual, TRIM do SSD e limpeza de componentes do Windows.
+- **Antes × depois:** o Histórico compara tempo para ligar, programas na inicialização, serviços e memória com a "foto" tirada antes da primeira otimização.
 - **Placa de vídeo:** modos Desempenho máximo / Balanceado / Qualidade, monitor na taxa máxima e guia do painel NVIDIA/AMD/Intel.
 - **Notebook:** saúde da bateria e ajustes só para bateria. **Serviços:** desliga serviços desnecessários mostrando quanta RAM cada um usa.
 - **Entender antes de aplicar:** prévia "agora → depois" no seu PC, glossário, modo simples/avançado e "o que mudou" depois de aplicar.
-- **Ferramentas** (em grupos): monitor de conexão, espaço em disco, temperaturas ao vivo, manutenção automática, suporte técnico (resumo para chamado, senhas Wi-Fi, ajuda remota), desinstalar Office, proteção/antivírus, DNS com teste de velocidade, programas de inicialização (liga/desliga), teste de servidor TCP, drivers USB-serial e portas COM, reparo do Windows (DISM/SFC com progresso), instalação de programas (winget), relatório do PC em HTML e atalhos do Windows.
+- **Ferramentas** (em grupos): modo jogo (fecha programas e volta tudo depois), apps que vieram com o Windows (remoção um por um), vários PCs (inventário), monitor de conexão, espaço em disco (com arquivos repetidos e programas por tamanho), temperaturas ao vivo, manutenção automática, suporte técnico (resumo para chamado, senhas Wi-Fi, ajuda remota), desinstalar Office, proteção/antivírus, DNS com teste de velocidade, programas de inicialização (liga/desliga), teste de servidor TCP, drivers USB-serial e portas COM, reparo do Windows (DISM/SFC com progresso), instalação de programas (winget), relatório do PC em HTML e atalhos do Windows.
 - **Segurança:** ponto de restauração antes da primeira alteração, valores originais guardados por ajuste, desfazer individual ou total, histórico de execuções e log diário.
 - Tema claro e escuro.
 
@@ -48,7 +51,10 @@ src/
   Executar-Otimizador.bat      abre a interface
   Otimizador-Vinicius-GUI.ps1  janela (WPF)
   nucleo.ps1                   motor: detectar / simular / aplicar / desfazer
-  ferramentas.ps1              relatório, rede, inicialização, drivers, reparo, winget
+  ferramentas.ps1              relatório, rede, inicialização, drivers, reparo, winget, espaço
+  analise.ps1                  diagnóstico: lentidão, boot, estabilidade, conexão, BIOS, antes × depois
+  programas.ps1                apps do Windows, programas por tamanho, modo jogo
+  inventario.ps1               inventário de vários PCs (Inventario-PC.bat)
   catalogo/*.ps1               os ajustes (um arquivo por categoria)
   ui/Janela.xaml, Modelos.cs   layout e modelos de tela
   Otimizador-Vinicius.ps1      v1.1 (modo texto)

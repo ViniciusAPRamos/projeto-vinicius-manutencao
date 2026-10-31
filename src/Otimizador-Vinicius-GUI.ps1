@@ -20,6 +20,8 @@
        -SemPausa         não espera Enter no final (scripts e tarefas)
        -Manutencao <config.json>
                          manutenção agendada (usado pela tarefa do Windows)
+       -Inventario <pasta>
+                         grava <NOME-DO-PC>.json na pasta (não pede administrador)
 
      Parâmetros de desenvolvimento:
        -SemElevar        abre sem administrador (só visualização)
@@ -31,18 +33,19 @@ param(
     [string]$Captura,
     [string]$Perfil,
     [switch]$SemPausa,
-    [string]$Manutencao
+    [string]$Manutencao,
+    [string]$Inventario
 )
 
 $ErrorActionPreference = 'Stop'
 $Script:SrcDir = $PSScriptRoot
-$Script:Silencioso = [bool]($Perfil -or $Manutencao)
+$Script:Silencioso = [bool]($Perfil -or $Manutencao -or $Inventario)
 
 # ---------------------------------------------------------------
 #  Elevação (repassa os parâmetros do modo silencioso)
 # ---------------------------------------------------------------
 $ehAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-if (-not $ehAdmin -and -not $SemElevar -and -not $Captura) {
+if (-not $ehAdmin -and -not $SemElevar -and -not $Captura -and -not $Inventario) {
     $argsElev = "-NoProfile -ExecutionPolicy Bypass -STA -File `"$PSCommandPath`""
     $estilo = 'Hidden'
     if ($Perfil) { $argsElev += " -Perfil `"$Perfil`""; $estilo = 'Normal' }
@@ -70,8 +73,15 @@ if ($Script:Silencioso) {
         . (Join-Path $Script:SrcDir 'diagnostico.ps1')
         . (Join-Path $Script:SrcDir 'seguranca.ps1')
         . (Join-Path $Script:SrcDir 'manutencao.ps1')
-        Initialize-Otz -SrcDir $Script:SrcDir -SidAlvo (Get-SidUsuarioSessao)
-        if ($Manutencao) {
+        . (Join-Path $Script:SrcDir 'analise.ps1')
+        . (Join-Path $Script:SrcDir 'inventario.ps1')
+        $sidAlvo = if ($ehAdmin) { Get-SidUsuarioSessao } else { $null }
+        Initialize-Otz -SrcDir $Script:SrcDir -SidAlvo $sidAlvo
+        if ($Inventario) {
+            Write-Host "Otimizador Vinicius - inventário de $env:COMPUTERNAME" -ForegroundColor Cyan
+            $arq = Save-InventarioPC $Inventario
+            Write-Host "Salvo em $arq" -ForegroundColor Green
+        } elseif ($Manutencao) {
             $r = Invoke-ManutencaoAgendada $Manutencao
             if ($r.Erros) { $codigo = 1 }
         } else {
@@ -123,6 +133,9 @@ try {
     . (Join-Path $Script:SrcDir 'diagnostico.ps1')
     . (Join-Path $Script:SrcDir 'seguranca.ps1')
     . (Join-Path $Script:SrcDir 'manutencao.ps1')
+    . (Join-Path $Script:SrcDir 'analise.ps1')
+    . (Join-Path $Script:SrcDir 'programas.ps1')
+    . (Join-Path $Script:SrcDir 'inventario.ps1')
     . (Join-Path $Script:SrcDir 'glossario.ps1')
     $sidAlvo = if ($ehAdmin) { Get-SidUsuarioSessao } else { $null }
     Initialize-Otz -SrcDir $Script:SrcDir -SidAlvo $sidAlvo
@@ -194,7 +207,7 @@ function Set-Tema([string]$Nome) {
 }
 
 function Save-Preferencias {
-    try { [IO.File]::WriteAllText($S.ArqPrefs, (@{ Tema = $S.Tema; Avancado = [bool]$S.ModoAvancado } | ConvertTo-Json), (New-Object Text.UTF8Encoding $false)) } catch { }
+    try { [IO.File]::WriteAllText($S.ArqPrefs, (@{ Tema = $S.Tema; Avancado = [bool]$S.ModoAvancado; PastaFrota = [string]$S.PastaFrota } | ConvertTo-Json), (New-Object Text.UTF8Encoding $false)) } catch { }
 }
 
 function Get-TemaInicial {
@@ -353,6 +366,9 @@ function Start-Tarefa {
 . (Join-Path `$SrcDir 'ferramentas.ps1')
 . (Join-Path `$SrcDir 'diagnostico.ps1')
 . (Join-Path `$SrcDir 'seguranca.ps1')
+. (Join-Path `$SrcDir 'analise.ps1')
+. (Join-Path `$SrcDir 'programas.ps1')
+. (Join-Path `$SrcDir 'inventario.ps1')
 Initialize-Otz -SrcDir `$SrcDir -Fila `$Fila -SidAlvo `$SidAlvo
 $Script
 "@
@@ -394,7 +410,7 @@ function Test-TarefaAtiva([string]$Nome) { return [bool](@($S.Tarefas) | Where-O
 #  Navegação
 # ===============================================================
 $Script:Paginas = [ordered]@{
-    NavInicio = 'PagInicio'; NavVerificar = 'PagVerificar'; NavOtimizar = 'PagOtimizar'; NavVideo = 'PagVideo'; NavNotebook = 'PagNotebook'
+    NavInicio = 'PagInicio'; NavVerificar = 'PagVerificar'; NavDiagnostico = 'PagDiagnostico'; NavOtimizar = 'PagOtimizar'; NavVideo = 'PagVideo'; NavNotebook = 'PagNotebook'
     NavServicos = 'PagServicos'; NavFerramentas = 'PagFerramentas'; NavHistorico = 'PagHistorico'; NavAjuda = 'PagAjuda'
 }
 
@@ -403,7 +419,8 @@ function Show-Pagina([string]$Pagina) {
     if ($Pagina -ne 'PagFerramentas') { Stop-Temperaturas } elseif ($UI.FerTemp.Visibility -eq 'Visible') { Start-Temperaturas }
     Show-Entrada $UI[$Pagina]
     switch ($Pagina) {
-        'PagHistorico'   { Update-Historico }
+        'PagHistorico'   { Update-Historico; Update-Comparacao }
+        'PagDiagnostico' { if (-not $S.DiagCarregado.Count) { Show-Diagnostico 'RbDiagLento' } }
         'PagVideo'       { if (-not $S.GpuCarregada) { Update-Gpu } }
         'PagNotebook'    { if (-not $S.BateriaCarregada) { Update-Bateria } }
         'PagServicos'    { Update-Ram }
@@ -893,7 +910,12 @@ function Start-Execucao([string]$Modo, [string[]]$Ids) {
     Show-Overlay
 
     $criarPonto = -not $S.PontoCriado
-    Start-Tarefa -Nome 'execucao' -Script 'Invoke-Plano -Ids $Parametros.Ids -Modo $Parametros.Modo -CriarPonto $Parametros.CriarPonto' `
+    # Antes da primeira otimização, grava a "foto" do PC para o Antes × depois do Histórico
+    $script = @'
+if ($Parametros.Modo -eq 'aplicar' -and -not (Get-MedicaoReferencia)) { try { [void](Save-MedicaoReferencia) } catch { Write-Log "Medição de referência falhou: $($_.Exception.Message)" } }
+Invoke-Plano -Ids $Parametros.Ids -Modo $Parametros.Modo -CriarPonto $Parametros.CriarPonto
+'@
+    Start-Tarefa -Nome 'execucao' -Script $script `
         -Parametros @{ Ids = [string[]]@($itens | ForEach-Object Id); Modo = $Modo; CriarPonto = [bool]$criarPonto } `
         -AoEvento { param($ev) Receive-EventoExecucao $ev } `
         -AoTerminar { param($saida, $erro) Complete-Execucao $saida $erro }
@@ -1055,6 +1077,7 @@ $Script:FerPaineis = [ordered]@{
     RbFerRede = 'FerRede'; RbFerInicio = 'FerInicio'; RbFerServidor = 'FerServidor'; RbFerSerial = 'FerSerial'
     RbFerReparo = 'FerReparo'; RbFerProgramas = 'FerProgramas'; RbFerRelatorio = 'FerRelatorio'
     RbFerSuporte = 'FerSuporte'; RbFerTemp = 'FerTemp'; RbFerMonitor = 'FerMonitor'; RbFerManut = 'FerManut'; RbFerEspaco = 'FerEspaco'; RbFerProtecao = 'FerProtecao'; RbFerOffice = 'FerOffice'; RbFerAtalhos = 'FerAtalhos'
+    RbFerJogo = 'FerJogo'; RbFerApps = 'FerApps'; RbFerFrota = 'FerFrota'
 }
 
 function Show-Ferramenta([string]$Rb) {
@@ -1071,7 +1094,10 @@ function Show-Ferramenta([string]$Rb) {
             'FerInicio'    { Update-Inicio }
             'FerSerial'    { Update-Serial }
             'FerProgramas' { Initialize-Winget }
-            'FerEspaco'    { Update-Espaco }
+            'FerEspaco'    { Update-Espaco; Update-ProgTam }
+            'FerJogo'      { Update-Jogo }
+            'FerApps'      { Update-Apps }
+            'FerFrota'     { if ($S.PastaFrota) { $UI.TxtFrotaPasta.Text = $S.PastaFrota; Update-Frota } }
             'FerManut'     { Initialize-Manut }
             'FerSuporte'   { Initialize-Suporte }
             'FerProtecao'  { Update-Protecao }
@@ -1910,6 +1936,7 @@ $UI.ListaSaude.ItemsSource = $S.Saude
 $S.RotulosAcao = @{
     defender = 'Abrir Segurança'; firewall = 'Abrir firewall'; reiniciar = 'Reiniciar'; windowsupdate = 'Abrir Windows Update'
     limpeza = 'Limpar agora'; inicializacao = 'Ver programas'; relatorio = 'Gerar relatório'; video = 'Ver placa de vídeo'; 'gpu.hz-maximo' = 'Corrigir'
+    estabilidade = 'Ver detalhes'
 }
 
 # Mesmo tratamento da detecção da abertura
@@ -1938,7 +1965,7 @@ function Step([int]$i, [string]$n, [string]$x = '') { Send-Evento @{ Tipo = 'eta
 Step 0 'rodando'; Get-EstadoTodos; Step 0 'ok'
 Step 1 'rodando'; $c = @(Get-SaudeSeguranca); Step 1 (Get-PiorNivel $c)
 Step 2 'rodando'; $c = @(Get-SaudeAtualizacoes); Step 2 (Get-PiorNivel $c)
-Step 3 'rodando'; $info = Get-InfoPC; $c = @(Get-SaudeHardware $info); Step 3 (Get-PiorNivel $c)
+Step 3 'rodando'; $info = Get-InfoPC; $c = @(@(Get-SaudeHardware $info) + @(Get-SaudeEstabilidade)); Step 3 (Get-PiorNivel $c)
 Step 4 'rodando'; $c = @(Get-SaudeVideo | Where-Object { $_.Titulo }); Step 4 (Get-PiorNivel $c)
 Step 5 'rodando'; $c = @(Get-SaudeManutencao $info); Step 5 (Get-PiorNivel $c)
 $info
@@ -2032,6 +2059,7 @@ $UI.ListaSaude.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, 
             'relatorio'     { Start-Relatorio }
             'video'         { Open-Pagina 'NavVideo' }
             'gpu.hz-maximo' { Request-Aplicar @($S.PorId['gpu.hz-maximo']) }
+            'estabilidade'  { Invoke-AcaoAchado 'estabilidade' }
         }
     } catch { Show-Toast "Não foi possível abrir: $($_.Exception.Message)" 'erro' }
 })
@@ -2637,6 +2665,524 @@ $Win.Dispatcher.Add_UnhandledException({
     Show-Toast "Algo deu errado: $($e.Exception.Message)" 'erro'
 })
 
+# ===============================================================
+#  Diagnóstico (só leitura)
+# ===============================================================
+$Script:DiagPaineis = [ordered]@{ RbDiagLento = 'DiagLento'; RbDiagBoot = 'DiagBoot'; RbDiagEstab = 'DiagEstab'; RbDiagConexao = 'DiagConexao'; RbDiagBios = 'DiagBios' }
+$S.DiagCarregado = @{}
+
+function Show-Diagnostico([string]$Rb) {
+    if (-not $UI[$Rb].IsChecked) { $UI[$Rb].IsChecked = $true; return }
+    $painel = $DiagPaineis[$Rb]
+    foreach ($p in $DiagPaineis.Values) { if ($p -ne $painel) { $UI[$p].Visibility = 'Collapsed' } }
+    $UI[$painel].Visibility = 'Visible'
+    Start-Animacao $UI[$painel] ([Windows.UIElement]::OpacityProperty) 0 1 220
+    if (-not $S.DiagCarregado[$painel]) {
+        $S.DiagCarregado[$painel] = $true
+        switch ($painel) {
+            'DiagLento'   { Start-AnaliseLento }
+            'DiagBoot'    { Update-Boot }
+            'DiagEstab'   { Update-Estab }
+            'DiagConexao' { Update-Conexao }
+            'DiagBios'    { Update-Bios }
+        }
+    }
+}
+foreach ($rb in $DiagPaineis.Keys) { $UI[$rb].Add_Checked({ Show-Diagnostico $this.Name }) }
+
+# Linha de achado (New-Achado) → Otz.Linha para o modelo ModeloSaude
+function ConvertTo-LinhaAchado($a) { return (New-Linha -Titulo $a.Titulo -Texto $a.Texto -Nivel $a.Nivel -Tag ([string]$a.Acao) -Extra ([string]$a.Rotulo)) }
+
+# Botões das listas de achados (todas as telas de diagnóstico)
+function Invoke-AcaoAchado([string]$Acao) {
+    if (-not $Acao) { return }
+    switch -Wildcard ($Acao) {
+        'windowsupdate' { Start-Process 'ms-settings:windowsupdate' }
+        'reiniciar'     { $UI.BtnExecReiniciar.RaiseEvent((New-Object Windows.RoutedEventArgs ([Windows.Controls.Primitives.ButtonBase]::ClickEvent))) }
+        'temperaturas'  { Open-Pagina 'NavFerramentas'; Show-Ferramenta 'RbFerTemp' }
+        'inicializacao' { Open-Pagina 'NavFerramentas'; Show-Ferramenta 'RbFerInicio' }
+        'perfmon'       { Start-Process perfmon.exe -ArgumentList '/rel' }
+        'bios'          { Open-Pagina 'NavDiagnostico'; Show-Diagnostico 'RbDiagBios' }
+        'estabilidade'  { Open-Pagina 'NavDiagnostico'; Show-Diagnostico 'RbDiagEstab' }
+        '*.*' {
+            $a = $S.PorId[$Acao]
+            if (-not $a) { return }
+            if (-not $a.Habilitado) { Show-Toast $a.Motivo 'info'; return }
+            if ($a.Estado -eq 'aplicado') { Show-Toast "'$($a.Nome)' já está aplicado." 'info'; return }
+            Request-Aplicar @($a)
+        }
+    }
+}
+foreach ($lista in 'ListaLento', 'ListaBootAtrasos', 'ListaEstab', 'ListaConexao', 'ListaBios') {
+    $UI[$lista].AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Windows.RoutedEventHandler]{
+        param($origem, $e)
+        try { Invoke-AcaoAchado ([string]$e.OriginalSource.Tag) } catch { Show-Toast "Não foi possível abrir: $($_.Exception.Message)" 'erro' }
+    })
+}
+
+# ---------------- Por que está lento? ----------------
+function Start-AnaliseLento {
+    if (Test-TarefaAtiva 'lento') { return }
+    $UI.BtnLentoAnalisar.IsEnabled = $false
+    $UI.TxtLentoStatus.Text = 'Medindo por 2 segundos...'
+    Start-Tarefa -Nome 'lento' -Script 'Get-DiagnosticoLentidao' -AoTerminar {
+        param($saida, $erro)
+        $UI.BtnLentoAnalisar.IsEnabled = $true
+        $d = @($saida | Where-Object { $_ -and $null -ne $_.Cpu })[0]
+        if (-not $d) { $UI.TxtLentoStatus.Text = "Não foi possível medir: $erro"; return }
+        Show-Lento $d
+    }
+}
+
+function New-LinhaProcesso($P, [double]$Fracao, [string]$Valor) {
+    $sub = "$($P.Nome).exe"
+    if ($P.Qtd -gt 1) { $sub += "  ·  $($P.Qtd) processos" }
+    $botao = if ($P.Nome -in $Script:ProcessosProtegidos -or $P.Nome -eq 'Idle') { '' } else { 'Finalizar' }
+    return (New-Linha -Titulo $P.Descricao -Texto $sub -Valor ([math]::Min(1, $Fracao)) -Extra $Valor -Icone $botao -Tag $P.Nome)
+}
+
+function Show-Lento($D) {
+    $UI.TxtLentoStatus.Text = "Medido às $(Get-Date -Format 'HH:mm:ss'). Clique de novo para medir outra vez."
+    $UI.TxtLentoCpu.Text = "$($D.Cpu)%"
+    $UI.TxtLentoRam.Text = "$($D.Ram)%"
+    $UI.TxtLentoRamSub.Text = "de $(Format-Tamanho $D.RamTotal)  ·  memória virtual em $($D.Commit)%"
+    $UI.TxtLentoDisco.Text = "$($D.Disco)%"
+    $UI.TxtLentoDiscoSub.Text = (@($D.Discos) | ForEach-Object { "$($_.Nome) $($_.Ocupado)%" }) -join '  ·  '
+    Start-Animacao $UI.BarraLentoCpu ([Windows.Controls.Primitives.RangeBase]::ValueProperty) 0 $D.Cpu 600
+    Start-Animacao $UI.BarraLentoRam ([Windows.Controls.Primitives.RangeBase]::ValueProperty) 0 $D.Ram 600
+    Start-Animacao $UI.BarraLentoDisco ([Windows.Controls.Primitives.RangeBase]::ValueProperty) 0 $D.Disco 600
+    $UI.ListaLento.ItemsSource = ConvertTo-Linhas @($D.Achados | ForEach-Object { ConvertTo-LinhaAchado $_ })
+    $cpuLista = @($D.TopCpu | Where-Object { $_.Cpu -ge 0.5 })
+    if ($cpuLista.Count) { $UI.ListaLentoCpu.ItemsSource = ConvertTo-Linhas @($cpuLista | ForEach-Object { New-LinhaProcesso $_ ($_.Cpu / 100) "$(([double]$_.Cpu).ToString('0.#'))%" }) }
+    else { $UI.ListaLentoCpu.ItemsSource = ConvertTo-Linhas @(New-Linha -Titulo 'Processador folgado' -Texto 'Nenhum programa passou de 0,5% durante a medição.') }
+    $UI.ListaLentoRam.ItemsSource = ConvertTo-Linhas @($D.TopRam | ForEach-Object { New-LinhaProcesso $_ ($_.Ram / $D.RamTotal) (Format-Tamanho $_.Ram) })
+}
+
+$UI.BtnLentoAnalisar.Add_Click({ Start-AnaliseLento })
+foreach ($lista in 'ListaLentoCpu', 'ListaLentoRam') {
+    $UI[$lista].AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Windows.RoutedEventHandler]{
+        param($origem, $e)
+        $nome = [string]$e.OriginalSource.Tag
+        $l = $e.OriginalSource.DataContext
+        if (-not $nome) { return }
+        Show-Dialogo -Titulo "Finalizar $($l.Titulo)?" -Texto "Todos os processos de $nome.exe serão fechados na hora. O que não estiver salvo nele será perdido." -TextoOk 'Finalizar' -Tipo 'perigo' -Dados $nome -Acao {
+            param($n)
+            try {
+                Get-Process -Name $n -ErrorAction Stop | Stop-Process -Force -ErrorAction Stop
+                Write-Log "Processo finalizado pelo usuário: $n"
+                Show-Toast "$n finalizado." 'ok'
+            } catch { Show-Toast "Não foi possível finalizar: $($_.Exception.Message)" 'erro' }
+            Start-AnaliseLento
+        }
+    })
+}
+
+# ---------------- Tempo para ligar ----------------
+function Update-Boot {
+    if (Test-TarefaAtiva 'boot') { return }
+    $UI.TxtBootUltimo.Text = 'Lendo...'
+    Start-Tarefa -Nome 'boot' -Script 'Get-HistoricoBoot 20' -AoTerminar {
+        param($saida, $erro)
+        $b = @($saida | Where-Object { $_ -and $null -ne $_.Disponivel })[0]
+        if (-not $b) { $UI.TxtBootUltimo.Text = 'Não foi possível ler'; $UI.TxtBootSub.Text = $erro; return }
+        Show-Boot $b
+    }
+}
+
+function Format-Segundos([double]$Valor) { return "$($Valor.ToString('0.0')) s" }
+
+# Número com vírgula decimal (o "$x" do PowerShell sempre usa ponto)
+function Format-Numero($Valor) {
+    if ($Valor -is [double] -or $Valor -is [decimal] -or $Valor -is [single]) { return ([double]$Valor).ToString('0.#') }
+    return [string]$Valor
+}
+
+function Show-Boot($B) {
+    $UI.CardBootLista.Visibility = if ($B.Disponivel) { 'Visible' } else { 'Collapsed' }
+    if (-not $B.Disponivel) {
+        $UI.TxtBootUltimo.Text = 'Sem medições ainda'
+        $UI.TxtBootSub.Text = $B.Motivo
+    } else {
+        $boots = @($B.Boots)
+        $u = $boots[0]
+        $media = ($boots | Measure-Object AteAreaDeTrabalho -Average).Average
+        $veredito = if ($u.AteAreaDeTrabalho -le 30) { 'rápido' } elseif ($u.AteAreaDeTrabalho -le 60) { 'normal' } else { 'lento' }
+        $UI.TxtBootUltimo.Text = "$(Format-Segundos $u.AteAreaDeTrabalho) para ligar ($veredito)"
+        $UI.TxtBootSub.Text = "Última inicialização em $($u.Data.ToString('dd/MM HH:mm')): área de trabalho em $(Format-Segundos $u.AteAreaDeTrabalho), tudo carregado em $(Format-Segundos $u.Total). Média das últimas $($boots.Count): $(Format-Segundos $media)."
+        $max = ($boots | Measure-Object AteAreaDeTrabalho -Maximum).Maximum; if ($max -le 0) { $max = 1 }
+        $UI.ListaBoot.ItemsSource = ConvertTo-Linhas @($boots | ForEach-Object { New-Linha -Titulo $_.Data.ToString('dd/MM/yyyy  HH:mm') -Valor ($_.AteAreaDeTrabalho / $max) -Texto (Format-Segundos $_.AteAreaDeTrabalho) })
+    }
+    $atrasos = @($B.Atrasos)
+    $UI.TxtBootAtrasosTitulo.Visibility = if ($B.Disponivel) { 'Visible' } else { 'Collapsed' }
+    if (-not $B.Disponivel) { $UI.ListaBootAtrasos.ItemsSource = $null; return }
+    if ($atrasos.Count -eq 0) {
+        $UI.ListaBootAtrasos.ItemsSource = ConvertTo-Linhas @(New-Linha -Titulo 'Nada atrasou a inicialização' -Texto 'O Windows não registrou programas, drivers ou serviços lentos nos últimos 60 dias.' -Nivel 'ok')
+    } else {
+        $UI.ListaBootAtrasos.ItemsSource = ConvertTo-Linhas @($atrasos | ForEach-Object {
+            $tag = if ($_.Tipo -eq 'Programa') { 'inicializacao' } else { '' }
+            $rot = if ($tag) { 'Ver inicialização' } else { '' }
+            New-Linha -Titulo $_.Nome -Texto "$($_.Tipo) que atrasou a inicialização $($_.Vezes) vez(es), em média $(Format-Segundos ($_.Ms / 1000.0 / [math]::Max(1, $_.Vezes))) a mais." -Nivel 'medio' -Tag $tag -Extra $rot
+        })
+    }
+}
+$UI.BtnBootAtualizar.Add_Click({ Update-Boot })
+
+# ---------------- Travamentos ----------------
+function Update-Estab {
+    if (Test-TarefaAtiva 'estab') { return }
+    Start-Tarefa -Nome 'estab' -Script 'Get-Estabilidade 30' -AoTerminar {
+        param($saida, $erro)
+        $e = @($saida | Where-Object { $_ -and $null -ne $_.Dias })[0]
+        if (-not $e) { $UI.TxtEstabTitulo.Text = "Não foi possível ler: $erro"; return }
+        $UI.TxtEstabIndice.Text = if ($null -ne $e.Indice) { $e.Indice.ToString('0.0') } else { '—' }
+        $UI.TxtEstabTitulo.Text = if ($e.TelasAzuis -or $e.Desligamentos -ge 3) { 'O PC está instável: veja os pontos abaixo' }
+                                  elseif ($e.Desligamentos -or @($e.Apps).Count) { 'Alguns problemas pontuais' }
+                                  else { 'PC estável nos últimos 30 dias' }
+        $UI.ListaEstab.ItemsSource = ConvertTo-Linhas @($e.Achados | ForEach-Object { ConvertTo-LinhaAchado $_ })
+        $apps = @($e.Apps)
+        $UI.TxtEstabAppsTitulo.Visibility = if ($apps.Count) { 'Visible' } else { 'Collapsed' }
+        $UI.ListaEstabApps.ItemsSource = ConvertTo-Linhas @($apps | ForEach-Object {
+            $partes = @(); if ($_.Erros) { $partes += "fechou com erro $($_.Erros) vez(es)" }; if ($_.Travou) { $partes += "parou de responder $($_.Travou) vez(es)" }
+            $dica = if ($_.Sistema) { 'É um componente do Windows: se continuar, use Ferramentas > Reparar Windows.' } else { 'Atualize ou reinstale o programa; se for um jogo, verifique os arquivos pelo launcher.' }
+            New-Linha -Titulo $_.App -Texto "$(($partes -join ' e ')) (último: $($_.Ultimo.ToString('dd/MM HH:mm'))). $dica" -Nivel $(if (($_.Erros + $_.Travou) -ge 5) { 'medio' } else { 'info' })
+        })
+    }
+}
+$UI.BtnEstabMonitor.Add_Click({ Start-Process perfmon.exe -ArgumentList '/rel' })
+
+# ---------------- Cabo e Wi-Fi ----------------
+function Update-Conexao {
+    if (Test-TarefaAtiva 'conexao') { return }
+    $UI.BtnConexaoAtualizar.IsEnabled = $false
+    Start-Tarefa -Nome 'conexao' -Script 'Get-QualidadeConexao' -AoTerminar {
+        param($saida, $erro)
+        $UI.BtnConexaoAtualizar.IsEnabled = $true
+        $UI.ListaConexao.ItemsSource = ConvertTo-Linhas @($saida | Where-Object { $_ -and $_.Titulo } | ForEach-Object { ConvertTo-LinhaAchado $_ })
+    }
+}
+$UI.BtnConexaoAtualizar.Add_Click({ Update-Conexao })
+
+# ---------------- BIOS e hardware ----------------
+function Update-Bios {
+    if (Test-TarefaAtiva 'bios') { return }
+    Start-Tarefa -Nome 'bios' -Script 'Get-ChecklistBios' -AoTerminar {
+        param($saida, $erro)
+        $UI.ListaBios.ItemsSource = ConvertTo-Linhas @($saida | Where-Object { $_ -and $_.Titulo } | ForEach-Object { ConvertTo-LinhaAchado $_ })
+    }
+}
+$UI.BtnBiosReiniciar.Add_Click({
+    Show-Dialogo -Titulo 'Reiniciar e abrir a BIOS?' -Texto 'Salve o que estiver aberto. O PC reinicia em 5 segundos e entra direto na configuração da BIOS (UEFI). Para sair sem mudar nada, use "Exit without saving" / "Sair sem salvar".' -TextoOk 'Reiniciar na BIOS' -Tipo 'perigo' -Acao {
+        $saida = & shutdown.exe /r /fw /t 5 2>&1
+        if ($LASTEXITCODE -ne 0) { Show-Toast 'Este PC não aceita abrir a BIOS pelo Windows. Reinicie e aperte Del, F2 ou F10 logo que a tela acender.' 'aviso'; Write-Log "shutdown /fw falhou: $($saida -join ' ')" }
+        else { Write-Log 'Reinício para a BIOS pedido pelo usuário.' }
+    }
+})
+
+# ===============================================================
+#  Ferramentas novas: modo jogo, apps do Windows, vários PCs
+# ===============================================================
+
+# ---------------- Modo jogo agora ----------------
+function Update-Jogo {
+    $e = Get-EstadoModoJogo
+    $ativo = [bool]$e.Ativo
+    $UI.BtnJogoAtivar.Visibility = if ($ativo) { 'Collapsed' } else { 'Visible' }
+    $UI.BtnJogoDesativar.Visibility = if ($ativo) { 'Visible' } else { 'Collapsed' }
+    if ($ativo) {
+        $desde = try { ([datetime]::Parse($e.Desde, [Globalization.CultureInfo]::InvariantCulture)).ToString('HH:mm') } catch { '?' }
+        $UI.TxtJogoTitulo.Text = "Modo jogo ativo desde $desde"
+        $n = @($e.Fechados).Count
+        $UI.TxtJogoSub.Text = "$n programa(s) fechado(s)" + $(if ($e.PlanoAnterior) { ' e plano de energia em desempenho máximo.' } else { '.' }) + ' Quando terminar, clique em "Terminei de jogar".'
+        $UI.IcoJogo.Text = G 0xE7FC
+        Set-Referencia $UI.CirculoJogo ([Windows.Controls.Border]::BackgroundProperty) 'AcentoSuave'
+        Set-Referencia $UI.IcoJogo ([Windows.Controls.TextBlock]::ForegroundProperty) 'Acento'
+    } else {
+        $UI.TxtJogoTitulo.Text = 'Modo jogo desligado'
+        $UI.TxtJogoSub.Text = 'Antes de jogar, fecha os programas que você escolher e coloca o PC em desempenho máximo. Ao terminar, volta tudo como estava.'
+        Set-Referencia $UI.CirculoJogo ([Windows.Controls.Border]::BackgroundProperty) 'Superficie2'
+        Set-Referencia $UI.IcoJogo ([Windows.Controls.TextBlock]::ForegroundProperty) 'TextoSec'
+        $UI.ChkJogoPlano.IsChecked = if ($null -ne $e.TrocarPlano) { [bool]$e.TrocarPlano } else { $true }
+    }
+    $S.JogoPreferidos = [string[]]@($e.Preferidos)
+    Start-Tarefa -Nome 'jogo-lista' -Script 'Get-ProgramasAbertos' -AoTerminar {
+        param($saida, $erro)
+        $lista = @($saida | Where-Object { $_ -and $_.Nome })
+        $S.JogoLista = ConvertTo-Linhas @($lista | ForEach-Object {
+            $txt = "$($_.Nome).exe" + $(if ($_.Pesa) { '  ·  costuma pesar durante jogos' } else { '' })
+            $l = New-Linha -Titulo $_.Descricao -Texto $txt -Extra (Format-Tamanho $_.Ram) -Tag $_.Nome
+            $l.Marcado = ($S.JogoPreferidos -contains $_.Nome)
+            $l
+        })
+        $UI.ListaJogo.ItemsSource = $S.JogoLista
+        $UI.TxtJogoVazio.Visibility = if ($lista.Count) { 'Collapsed' } else { 'Visible' }
+    }
+}
+
+$UI.BtnJogoAtualizar.Add_Click({ Update-Jogo })
+$UI.BtnJogoAtivar.Add_Click({
+    $nomes = [string[]]@($S.JogoLista | Where-Object Marcado | ForEach-Object Tag)
+    $plano = [bool]$UI.ChkJogoPlano.IsChecked
+    if (-not $nomes.Count -and -not $plano) { Show-Toast 'Marque algum programa para fechar ou ligue o desempenho máximo.' 'info'; return }
+    $linhas = @($S.JogoLista | Where-Object Marcado | ForEach-Object { New-Linha -Titulo "Fechar $($_.Titulo)" -Nivel 'medio' })
+    if ($plano) { $linhas += New-Linha -Titulo 'Plano de energia em desempenho máximo' -Nivel 'info' }
+    Show-Dialogo -Titulo 'Ativar o modo jogo?' -Texto 'Salve o que estiver aberto nos programas marcados: eles serão fechados como se você clicasse no X.' -Linhas $linhas -TextoOk 'Ativar' -Dados @{ Nomes = $nomes; Plano = $plano } -Acao {
+        param($d)
+        $UI.BtnJogoAtivar.IsEnabled = $false
+        $UI.TxtJogoSub.Text = 'Fechando os programas...'
+        Start-Tarefa -Nome 'jogo' -Script 'Start-ModoJogo -Nomes $Parametros.Nomes -TrocarPlano $Parametros.Plano' -Parametros @{ Nomes = $d.Nomes; Plano = $d.Plano } -AoTerminar {
+            param($saida, $erro)
+            $UI.BtnJogoAtivar.IsEnabled = $true
+            if ($erro) { Show-Toast "Falhou: $erro" 'erro' }
+            $UI.ListaJogoRes.ItemsSource = ConvertTo-Linhas @($saida | Where-Object { $_ -and $_.Titulo } | ForEach-Object { ConvertTo-LinhaAchado $_ })
+            Show-Toast 'Modo jogo ativo. Bom jogo!' 'ok'
+            Update-Jogo
+        }
+    }
+})
+$UI.BtnJogoDesativar.Add_Click({
+    $UI.BtnJogoDesativar.IsEnabled = $false
+    Start-Tarefa -Nome 'jogo' -Script 'Stop-ModoJogo -Reabrir $Parametros.Reabrir' -Parametros @{ Reabrir = [bool]$UI.ChkJogoReabrir.IsChecked } -AoTerminar {
+        param($saida, $erro)
+        $UI.BtnJogoDesativar.IsEnabled = $true
+        if ($erro) { Show-Toast "Falhou: $erro" 'erro' }
+        $UI.ListaJogoRes.ItemsSource = ConvertTo-Linhas @($saida | Where-Object { $_ -and $_.Titulo } | ForEach-Object { ConvertTo-LinhaAchado $_ })
+        Show-Toast 'Modo jogo desligado: tudo voltou ao normal.' 'ok'
+        Update-Jogo
+    }
+})
+
+# ---------------- Apps que vieram com o Windows ----------------
+function Update-Apps {
+    $UI.TxtAppsStatus.Text = 'Procurando...'
+    Start-Tarefa -Nome 'apps' -Script 'Get-AppsPreInstalados' -AoTerminar {
+        param($saida, $erro)
+        $lista = @($saida | Where-Object { $_ -and $_.Pacote })
+        $UI.ListaApps.ItemsSource = ConvertTo-Linhas @($lista | ForEach-Object {
+            $l = New-Linha -Titulo $_.Nome -Texto $_.Texto -Extra $_.Atencao -Tag $_.Pacote -Icone 'Remover'
+            $l.Nivel = ''
+            $l
+        })
+        $UI.TxtAppsStatus.Text = if ($lista.Count) { "$($lista.Count) app(s) que muita gente não usa. Remova só o que você não usa: um por vez, e todos podem ser reinstalados pela Microsoft Store. Apps essenciais (Store, Fotos, Calculadora, Bloco de Notas, Câmera) nem aparecem aqui." }
+                                 else { 'Nenhum app desnecessário conhecido foi encontrado neste PC.' }
+    }
+}
+$UI.ListaApps.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Windows.RoutedEventHandler]{
+    param($origem, $e)
+    $l = $e.OriginalSource.DataContext
+    if (-not $l -or -not $l.Tag) { return }
+    $linhas = @(); if ($l.Extra) { $linhas += New-Linha -Titulo $l.Extra -Nivel 'medio' }
+    Show-Dialogo -Titulo "Remover $($l.Titulo)?" -Texto "$($l.Texto) Para reinstalar depois, procure pelo nome na Microsoft Store." -Linhas $linhas -TextoOk 'Remover' -Tipo 'perigo' -Dados $l.Tag -Acao {
+        param($pacote)
+        Start-Tarefa -Nome 'apps-remover' -Script 'Remove-AppPreInstalado $Parametros.Pacote' -Parametros @{ Pacote = $pacote } -AoTerminar {
+            param($saida, $erro)
+            $r = @($saida | Where-Object { $_ -and $_.Status })[0]
+            if ($r) { Show-Toast $r.Mensagem $(if ($r.Status -eq 'ok') { 'ok' } elseif ($r.Status -eq 'erro') { 'erro' } else { 'info' }) } else { Show-Toast "Falhou: $erro" 'erro' }
+            Update-Apps
+        }
+    }
+})
+
+# ---------------- Espaço: arquivos repetidos e programas por tamanho ----------------
+function Show-ListaDup {
+    $grupos = @($S.Dup)
+    $UI.ListaDup.ItemsSource = ConvertTo-Linhas @(for ($i = 0; $i -lt $grupos.Count; $i++) {
+        $g = $grupos[$i]
+        $n = @($g.Copias).Count
+        $txt = "Fica: $($g.Manter)`n" + ((@($g.Copias) | ForEach-Object { "Cópia: $_" }) -join "`n")
+        $l = New-Linha -Titulo "$($g.Nome)  ($n cópia(s) a mais)" -Texto $txt -Tag ([string]$i) -Icone 'Cópias para a Lixeira'
+        $l.Nivel = Format-Tamanho $g.Desperdicio
+        $l
+    })
+    $total = 0.0; foreach ($g in $grupos) { $total += $g.Desperdicio }
+    $UI.BtnDupTodos.Visibility = if ($grupos.Count -gt 1) { 'Visible' } else { 'Collapsed' }
+    $UI.TxtDupStatus.Text = if ($grupos.Count) { "$($grupos.Count) arquivo(s) com cópias. As cópias somam $(Format-Tamanho $total). Em cada grupo fica o arquivo da primeira linha; as cópias vão para a Lixeira (dá para recuperar)." }
+                            else { 'Nenhum arquivo repetido acima de 1 MB nas suas pastas.' }
+}
+
+function Invoke-DupLixeira([object[]]$Grupos) {
+    $copias = [string[]]@($Grupos | ForEach-Object { $_.Copias })
+    $linhas = @($copias | Select-Object -First 12 | ForEach-Object { New-Linha -Titulo (Split-Path $_ -Leaf) -Texto $_ -Nivel 'info' })
+    $tam = 0.0; foreach ($g in $Grupos) { $tam += $g.Desperdicio }
+    Show-Dialogo -Titulo "Mandar $($copias.Count) cópia(s) para a Lixeira?" -Texto "Libera $(Format-Tamanho $tam) depois que a Lixeira for esvaziada. O arquivo original de cada grupo fica onde está." -Linhas $linhas -TextoOk 'Mandar para a Lixeira' -Dados $Grupos -Acao {
+        param($gs)
+        $r = Move-ParaLixeira ([string[]]@($gs | ForEach-Object { $_.Copias }))
+        if ($r.Erros.Count) { Show-Toast "$($r.Ok) enviada(s); $($r.Erros.Count) falharam: $($r.Erros[0])" 'aviso' } else { Show-Toast "$($r.Ok) cópia(s) na Lixeira." 'ok' }
+        $S.Dup = @($S.Dup | Where-Object { $gs -notcontains $_ })
+        Show-ListaDup
+    }
+}
+
+$UI.BtnDupProcurar.Add_Click({
+    $UI.BtnDupProcurar.IsEnabled = $false
+    $UI.TxtDupStatus.Text = 'Procurando... compara o conteúdo dos arquivos de mesmo tamanho, pode levar alguns minutos.'
+    Start-Tarefa -Nome 'duplicados' -Script 'Get-ArquivosDuplicados' -AoTerminar {
+        param($saida, $erro)
+        $UI.BtnDupProcurar.IsEnabled = $true
+        $S.Dup = @($saida | Where-Object { $_ -and $_.Manter })
+        Show-ListaDup
+    }
+})
+$UI.BtnDupTodos.Add_Click({ if (@($S.Dup).Count) { Invoke-DupLixeira @($S.Dup) } })
+$UI.ListaDup.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Windows.RoutedEventHandler]{
+    param($origem, $e)
+    $i = [int][string]$e.OriginalSource.Tag
+    $g = @($S.Dup)[$i]
+    if ($g) { Invoke-DupLixeira @($g) }
+})
+
+function Update-ProgTam {
+    Start-Tarefa -Nome 'prog-tamanho' -Script 'Get-ProgramasPorTamanho 15' -AoTerminar {
+        param($saida, $erro)
+        $S.ProgTam = @($saida | Where-Object { $_ -and $_.Desinstalar })
+        $UI.ListaProgTam.ItemsSource = ConvertTo-Linhas @(for ($i = 0; $i -lt $S.ProgTam.Count; $i++) {
+            $p = $S.ProgTam[$i]
+            $partes = @(); if ($p.Data) { $partes += "instalado em $($p.Data.ToString('dd/MM/yyyy'))" }; if ($p.Editor) { $partes += $p.Editor }
+            $l = New-Linha -Titulo $p.Nome -Texto ($partes -join '  ·  ') -Tag ([string]$i) -Icone 'Desinstalar'
+            $l.Nivel = Format-Tamanho $p.Bytes
+            $l
+        })
+    }
+}
+$UI.BtnProgTamApps.Add_Click({ Start-Process 'ms-settings:appsfeatures' })
+$UI.ListaProgTam.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Windows.RoutedEventHandler]{
+    param($origem, $e)
+    $p = @($S.ProgTam)[[int][string]$e.OriginalSource.Tag]
+    if (-not $p) { return }
+    Show-Dialogo -Titulo "Desinstalar $($p.Nome)?" -Texto 'Vai abrir o desinstalador do próprio programa: siga as instruções dele. Nada é removido sem a sua confirmação lá.' -TextoOk 'Abrir desinstalador' -Dados $p.Desinstalar -Acao {
+        param($cmd)
+        try { Start-DesinstaladorPrograma $cmd; Show-Toast 'Desinstalador aberto. Ao terminar, clique em "Analisar de novo".' 'info' } catch { Show-Toast "Não foi possível abrir: $($_.Exception.Message)" 'erro' }
+    }
+})
+
+# ---------------- Vários PCs (inventário) ----------------
+function Get-PastaFrota {
+    $p = $UI.TxtFrotaPasta.Text.Trim()
+    if (-not $p) { Show-Toast 'Escolha a pasta primeiro.' 'info'; return $null }
+    if ($p -ne $S.PastaFrota) { $S.PastaFrota = $p; Save-Preferencias }
+    return $p
+}
+
+function Update-Frota {
+    $pasta = Get-PastaFrota
+    if (-not $pasta) { return }
+    $UI.TxtFrotaStatus.Text = 'Lendo a pasta...'
+    Start-Tarefa -Nome 'frota' -Script 'Get-InventarioPasta $Parametros.Pasta' -Parametros @{ Pasta = $pasta } -AoTerminar {
+        param($saida, $erro)
+        $lista = @($saida | Where-Object { $_ -and $_.Computador })
+        $UI.ListaFrota.ItemsSource = ConvertTo-Linhas @($lista | ForEach-Object {
+            $o = $_
+            $data = try { [datetime]::Parse($o.Data, [Globalization.CultureInfo]::InvariantCulture) } catch { $null }
+            $quando = if ($data) { "atualizado $($data.ToString('dd/MM HH:mm'))" } else { '' }
+            $nivel = if ($o.Nota -ge 85) { 'ok' } elseif ($o.Nota -ge 65) { 'medio' } else { 'alto' }
+            $disco = "$($o.DiscoTipo)"; if ($null -ne $o.DiscoLivreGB) { $disco += " ($($o.DiscoLivreGB) GB livres)" }
+            $l = New-Linha -Titulo "$($o.Computador)  ·  $($o.Usuario)" -Texto "$($o.Cpu)  ·  $($o.RamGB) GB  ·  $disco  ·  $($o.GpuNome)  ·  $($o.Windows)" -Extra ([string]$o.Nota) -Tag $quando -Nivel $nivel
+            $avisos = New-Object System.Collections.Generic.List[Otz.Linha]
+            if ($o.TelasAzuis30d) { $avisos.Add((New-Linha -Titulo "$($o.TelasAzuis30d) tela(s) azul(is) em 30 dias")) }
+            if ($o.Desligamentos30d) { $avisos.Add((New-Linha -Titulo "$($o.Desligamentos30d) desligamento(s) inesperado(s) em 30 dias")) }
+            foreach ($a in @($o.Alertas)) { if ($a) { $avisos.Add((New-Linha -Titulo $a)) } }
+            $l.Filhos = $avisos.ToArray()
+            $l
+        })
+        $UI.TxtFrotaStatus.Text = if ($lista.Count) { "$($lista.Count) PC(s), do pior para o melhor (nota de 0 a 100)." } else { 'Nenhum inventário nesta pasta ainda. Clique em "Salvar este PC na pasta" ou rode o Inventario-PC.bat nos outros PCs.' }
+    }
+}
+
+$UI.BtnFrotaEscolher.Add_Click({
+    $d = New-Object System.Windows.Forms.FolderBrowserDialog
+    $d.Description = 'Pasta onde cada PC grava o inventário (pode ser uma pasta de rede).'
+    if ($UI.TxtFrotaPasta.Text) { $d.SelectedPath = $UI.TxtFrotaPasta.Text }
+    if ($d.ShowDialog() -eq 'OK') { $UI.TxtFrotaPasta.Text = $d.SelectedPath; Update-Frota }
+})
+$UI.BtnFrotaAtualizar.Add_Click({ Update-Frota })
+$UI.BtnFrotaSalvar.Add_Click({
+    $pasta = Get-PastaFrota
+    if (-not $pasta) { return }
+    $UI.BtnFrotaSalvar.IsEnabled = $false
+    $UI.TxtFrotaStatus.Text = 'Coletando o resumo deste PC (leva uns 15 segundos)...'
+    Start-Tarefa -Nome 'frota-salvar' -Script 'Save-InventarioPC $Parametros.Pasta' -Parametros @{ Pasta = $pasta } -AoTerminar {
+        param($saida, $erro)
+        $UI.BtnFrotaSalvar.IsEnabled = $true
+        if ($erro) { Show-Toast "Não foi possível salvar: $erro" 'erro'; $UI.TxtFrotaStatus.Text = ''; return }
+        Show-Toast 'Inventário deste PC salvo.' 'ok'
+        Update-Frota
+    }
+})
+$UI.BtnFrotaCsv.Add_Click({
+    $pasta = Get-PastaFrota
+    if (-not $pasta) { return }
+    $S.FrotaCsv = Join-Path $pasta ("inventario_$(Get-Date -Format 'yyyy-MM-dd_HHmm').csv")
+    Start-Tarefa -Nome 'frota-csv' -Script 'Export-InventarioCsv $Parametros.Pasta $Parametros.Destino' -Parametros @{ Pasta = $pasta; Destino = $S.FrotaCsv } -AoTerminar {
+        param($saida, $erro)
+        if ($erro) { Show-Toast "Não foi possível exportar: $erro" 'erro'; return }
+        Show-Toast 'Planilha criada na pasta do inventário.' 'ok'
+        Start-Process explorer.exe "/select,`"$($S.FrotaCsv)`""
+    }
+})
+$UI.BtnFrotaAbrir.Add_Click({ $p = Get-PastaFrota; if ($p -and (Test-Path $p)) { Start-Process explorer.exe "`"$p`"" } })
+
+# ===============================================================
+#  Antes × depois (Histórico)
+# ===============================================================
+function Update-Comparacao {
+    if (Test-TarefaAtiva 'comparacao') { return }
+    $UI.BtnCompMedir.IsEnabled = $false
+    Start-Tarefa -Nome 'comparacao' -Script 'Get-Comparacao' -AoTerminar {
+        param($saida, $erro)
+        $UI.BtnCompMedir.IsEnabled = $true
+        $c = @($saida | Where-Object { $_ -and $_.Agora })[0]
+        if (-not $c) {
+            $UI.TxtCompSub.Text = 'Na primeira vez que você aplicar ajustes, o otimizador grava uma "foto" do PC antes de mudar qualquer coisa. Depois, esta tela mostra o que melhorou: tempo para ligar, programas na inicialização, serviços e memória.'
+            $UI.CabecalhoComp.Visibility = 'Collapsed'
+            $UI.BtnCompNova.Visibility = 'Collapsed'
+            $UI.TxtCompMedir.Text = 'Gravar referência agora'
+            $UI.ListaComparacao.ItemsSource = $null
+            $S.CompSemRef = $true
+            return
+        }
+        $S.CompSemRef = -not $c.TemReferencia
+        $UI.TxtCompMedir.Text = if ($c.TemReferencia) { 'Medir agora' } else { 'Gravar referência agora' }
+        $UI.BtnCompNova.Visibility = if ($c.TemReferencia) { 'Visible' } else { 'Collapsed' }
+        $UI.CabecalhoComp.Visibility = 'Visible'
+        $UI.TxtCompSub.Text = if ($c.TemReferencia) { "Referência (antes) gravada em $($c.DataReferencia.ToString('dd/MM/yyyy HH:mm')). O tempo para ligar compara as inicializações antes e depois de $($c.DataCorte.ToString('dd/MM HH:mm')). Menor é melhor em todas as linhas." }
+                              else { "Os ajustes foram aplicados antes de existir esta comparação. O tempo para ligar vem do registro do Windows e compara as inicializações antes e depois da primeira otimização ($($c.DataCorte.ToString('dd/MM HH:mm'))). Para acompanhar programas, serviços e memória daqui para frente, grave uma referência agora." }
+        $linhas = New-Object System.Collections.Generic.List[Otz.Linha]
+        function Add-Comparacao([string]$Nome, $Antes, $Agora, [string]$Unidade, [string]$Nota = '', [double]$Tolerancia = 0) {
+            $txtAntes = if ($null -ne $Antes) { "$(Format-Numero $Antes)$Unidade" } else { '—' }
+            $txtAgora = if ($null -ne $Agora) { "$(Format-Numero $Agora)$Unidade" } else { '—' }
+            if ($null -eq $Antes -or $null -eq $Agora) {
+                $l = New-Linha -Titulo $Nome -Texto $txtAntes -Extra $txtAgora -Icone 'sem dados' -Nivel 'info' -Tag $Nota
+            } else {
+                $dif = [double]$Agora - [double]$Antes
+                $nivel = if ([math]::Abs($dif) -le $Tolerancia) { 'info' } elseif ($dif -lt 0) { 'ok' } else { 'medio' }
+                $txtDif = if ([math]::Abs($dif) -le $Tolerancia) { 'igual' } elseif ($dif -lt 0) { "$(Format-Numero ([math]::Abs($dif)))$Unidade a menos" } else { "$(Format-Numero $dif)$Unidade a mais" }
+                $l = New-Linha -Titulo $Nome -Texto $txtAntes -Extra $txtAgora -Icone $txtDif -Nivel $nivel -Tag $Nota
+            }
+            $linhas.Add($l)
+        }
+        $notaBoot = if (-not $c.BootDisponivel) { 'Abra como administrador para ler o tempo de inicialização.' }
+                    elseif ($null -eq $c.BootAntes) { 'O Windows não guardou inicializações de antes da otimização.' }
+                    elseif ($null -eq $c.BootDepois) { 'Reinicie o PC (Reiniciar, não Desligar) para medir o "depois".' }
+                    else { "Média de até 5 inicializações antes e $($c.BootsDepois) depois." }
+        Add-Comparacao 'Tempo para ligar' $c.BootAntes $c.BootDepois ' s' $notaBoot 0.5
+        if (-not $c.TemReferencia) { $UI.ListaComparacao.ItemsSource = $linhas.ToArray(); return }
+        Add-Comparacao 'Programas na inicialização' $c.Antes.Inicializacao $c.Agora.Inicializacao ''
+        Add-Comparacao 'Serviços rodando' $c.Antes.Servicos $c.Agora.Servicos '' '' 2
+        Add-Comparacao 'Processos abertos' $c.Antes.Processos $c.Agora.Processos '' 'Depende dos programas abertos no momento de cada medição.' 5
+        Add-Comparacao 'Memória em uso' ([math]::Round($c.Antes.RamUsoMB / 1024.0, 1)) ([math]::Round($c.Agora.RamUsoMB / 1024.0, 1)) ' GB' 'Compare com os mesmos programas abertos: o navegador sozinho muda bastante.' 0.2
+        $UI.ListaComparacao.ItemsSource = $linhas.ToArray()
+    }
+}
+$UI.BtnCompMedir.Add_Click({
+    if ($S.CompSemRef) {
+        Start-Tarefa -Nome 'comparacao-ref' -Script '[void](Save-MedicaoReferencia)' -AoTerminar { Show-Toast 'Referência gravada.' 'ok'; Update-Comparacao }
+    } else { Update-Comparacao }
+})
+$UI.BtnCompNova.Add_Click({
+    Show-Dialogo -Titulo 'Gravar uma nova referência?' -Texto 'A medição de agora passa a ser o "antes". Use depois de reinstalar programas ou trocar peças. A referência antiga é descartada.' -TextoOk 'Gravar nova referência' -Acao {
+        Start-Tarefa -Nome 'comparacao-ref' -Script '[void](Save-MedicaoReferencia)' -AoTerminar { Show-Toast 'Nova referência gravada.' 'ok'; Update-Comparacao }
+    }
+})
+
 # Barra de status e aviso de conta
 $papel = if ($ehAdmin) { 'Administrador' } else { 'Sem administrador (só visualização)' }
 $UI.TxtBarraStatus.Text = "$papel  ·  $(if ($Otz.IsWin11) { 'Windows 11' } else { 'Windows 10' }) $($Otz.VersaoWin)  ·  build $($Otz.Build).$($Otz.Ubr)"
@@ -2656,7 +3202,13 @@ Set-Tema (Get-TemaInicial)
 
 # Modo simples/avançado: lembra a última escolha (padrão: simples)
 $S.ModoAvancado = $false
-try { if (Test-Path $S.ArqPrefs) { $S.ModoAvancado = [bool](([IO.File]::ReadAllText($S.ArqPrefs) | ConvertFrom-Json).Avancado) } } catch { }
+try {
+    if (Test-Path $S.ArqPrefs) {
+        $prefs = [IO.File]::ReadAllText($S.ArqPrefs) | ConvertFrom-Json
+        $S.ModoAvancado = [bool]$prefs.Avancado
+        $S.PastaFrota = [string]$prefs.PastaFrota
+    }
+} catch { }
 $UI.ChkAvancado.IsChecked = $S.ModoAvancado
 Set-ModoAvancado $S.ModoAvancado
 
@@ -2785,6 +3337,50 @@ if ($Captura) {
         { Open-Pagina 'NavOtimizar'; $UI.TxtBusca.Text = 'navegador' }
         { Save-Captura '33-navegadores' }
         { $UI.TxtBusca.Text = '' }
+        { Open-Pagina 'NavDiagnostico' }
+        { }
+        { }
+        { }
+        { Save-Captura '34-lento' }
+        { $UI.DiagLento.ScrollToEnd() }
+        { Save-Captura '34b-lento-processos' }
+        { Show-Diagnostico 'RbDiagBoot' }
+        { }
+        { Save-Captura '35-boot' }
+        { Show-Diagnostico 'RbDiagEstab' }
+        { }
+        { Save-Captura '36-estabilidade' }
+        { Show-Diagnostico 'RbDiagConexao' }
+        { }
+        { Save-Captura '37-conexao' }
+        { Show-Diagnostico 'RbDiagBios' }
+        { }
+        { }
+        { Save-Captura '38-bios' }
+        { Open-Pagina 'NavFerramentas'; Show-Ferramenta 'RbFerJogo' }
+        { }
+        { Save-Captura '39-modo-jogo' }
+        { Show-Ferramenta 'RbFerApps' }
+        { }
+        { Save-Captura '40-apps' }
+        { $S.PastaFrota = Join-Path $Captura 'frota'; $UI.TxtFrotaPasta.Text = $S.PastaFrota; Show-Ferramenta 'RbFerFrota'; $UI.BtnFrotaSalvar.RaiseEvent((New-Object Windows.RoutedEventArgs ([Windows.Controls.Primitives.ButtonBase]::ClickEvent))) }
+        { }
+        { }
+        { }
+        { }
+        { }
+        { }
+        { }
+        { }
+        { Save-Captura '41-varios-pcs' }
+        { Show-Ferramenta 'RbFerEspaco' }
+        { $UI.BtnDupProcurar.RaiseEvent((New-Object Windows.RoutedEventArgs ([Windows.Controls.Primitives.ButtonBase]::ClickEvent))) }
+        { }
+        { }
+        { $UI.FerEspaco.ScrollToVerticalOffset(560) }
+        { Save-Captura '42-espaco-repetidos' }
+        { $UI.FerEspaco.ScrollToEnd() }
+        { Save-Captura '43-espaco-programas' }
         { Open-Pagina 'NavHistorico' }
         { Save-Captura '7-historico' }
         { Open-Pagina 'NavAjuda' }

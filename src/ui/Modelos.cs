@@ -127,6 +127,19 @@ namespace Otz
             }
         }
 
+        // Palavras difíceis do item explicadas (montado na abertura)
+        public string Glossario { get; set; }
+        public bool TemGlossario { get { return !string.IsNullOrEmpty(Glossario); } }
+
+        // "Agora → depois de aplicar" (calculado quando o item é aberto)
+        string _previa = "";
+        public string Previa
+        {
+            get { return _previa; }
+            set { if (Definir(ref _previa, value)) Avisar("TemPrevia"); }
+        }
+        public bool TemPrevia { get { return !string.IsNullOrEmpty(_previa); } }
+
         bool _podeDesfazer;
         public bool PodeDesfazer { get { return _podeDesfazer; } set { Definir(ref _podeDesfazer, value); } }
 

@@ -1039,7 +1039,7 @@
 
                         <StackPanel Grid.Row="1" Margin="36,20,36,8">
                             <WrapPanel>
-                                <StackPanel Margin="0,0,28,8">
+                                <StackPanel x:Name="PainelWindows" Margin="0,0,28,8">
                                     <TextBlock Style="{StaticResource Rotulo}" Text="WINDOWS"/>
                                     <Border Background="{DynamicResource Superficie2}" CornerRadius="10" Padding="3">
                                         <StackPanel Orientation="Horizontal">
@@ -1068,15 +1068,27 @@
                                 </StackPanel>
                             </Border>
                             <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="360"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="320"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                 <Grid>
                                     <TextBox x:Name="TxtBusca" Style="{StaticResource Campo}" Tag="Buscar ajuste (ex.: mouse, bing, energia)" Padding="36,9,12,9"/>
                                     <TextBlock Text="&#xE721;" Style="{StaticResource Icone}" Foreground="{DynamicResource TextoFraco}" Margin="13,0,0,0" HorizontalAlignment="Left" IsHitTestVisible="False"/>
                                 </Grid>
-                                <CheckBox x:Name="ChkSoPendentes" Grid.Column="1" Style="{StaticResource Interruptor}" Content="Mostrar só o que falta aplicar" Margin="20,0,0,0" Foreground="{DynamicResource TextoSec}"/>
-                                <Button x:Name="BtnLimparSelecao" Grid.Column="2" Style="{StaticResource BtnFantasma}">
-                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE711;" Style="{StaticResource IconeBtn}" FontSize="11"/><TextBlock Text="Desmarcar tudo"/></StackPanel>
-                                </Button>
+                                <WrapPanel Grid.Column="1" VerticalAlignment="Center" Margin="18,0,0,0">
+                                    <CheckBox x:Name="ChkSoPendentes" Style="{StaticResource Interruptor}" Content="Só o que falta" Margin="0,4,18,4" Foreground="{DynamicResource TextoSec}"/>
+                                    <CheckBox x:Name="ChkAvancado" Style="{StaticResource Interruptor}" Content="Modo avançado" Margin="0,4,0,4" Foreground="{DynamicResource TextoSec}"
+                                              ToolTip="Mostra os detalhes técnicos (chaves do registro e comandos), a escolha manual do Windows e os ajustes avançados."/>
+                                </WrapPanel>
+                                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                    <Button x:Name="BtnImportarPerfil" Style="{StaticResource BtnFantasma}" Padding="10,9" ToolTip="Carrega um perfil (.json) exportado de outro PC e marca os mesmos ajustes.">
+                                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8E5;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Importar"/></StackPanel>
+                                    </Button>
+                                    <Button x:Name="BtnExportarPerfil" Style="{StaticResource BtnFantasma}" Padding="10,9" ToolTip="Salva os ajustes marcados num arquivo para aplicar igual em outros PCs.">
+                                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE74E;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Exportar"/></StackPanel>
+                                    </Button>
+                                    <Button x:Name="BtnLimparSelecao" Style="{StaticResource BtnFantasma}" Padding="10,9">
+                                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE711;" Style="{StaticResource IconeBtn}" FontSize="11"/><TextBlock Text="Desmarcar"/></StackPanel>
+                                    </Button>
+                                </StackPanel>
                             </Grid>
                         </StackPanel>
 
@@ -1164,7 +1176,7 @@
                                         <TextBlock Text="Clique em um ajuste" FontWeight="SemiBold" FontSize="16" HorizontalAlignment="Center" Margin="0,16,0,4"/>
                                         <TextBlock Text="Aqui aparece o que ele faz, para quem é indicado, o que muda no sistema e como desfazer." Foreground="{DynamicResource TextoSec}" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="280"/>
                                     </StackPanel>
-                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <ScrollViewer x:Name="RolagemDetalhe" VerticalScrollBarVisibility="Auto">
                                         <ScrollViewer.Style>
                                             <Style TargetType="ScrollViewer">
                                                 <Style.Triggers><DataTrigger Binding="{Binding}" Value="{x:Null}"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers>
@@ -1211,8 +1223,21 @@
                                                 </Grid>
                                             </Border>
 
-                                            <TextBlock Text="O que muda no sistema" FontWeight="SemiBold" Margin="0,18,0,6"/>
-                                            <TextBox Text="{Binding Tecnico, Mode=OneWay}" Style="{StaticResource CampoCodigo}" MaxHeight="190"/>
+                                            <StackPanel Visibility="{Binding TemGlossario, Converter={StaticResource B2V}}">
+                                                <TextBlock Text="Palavras deste ajuste" FontWeight="SemiBold" Margin="0,18,0,6"/>
+                                                <Border Background="{DynamicResource InfoSuave}" CornerRadius="10" Padding="14,10">
+                                                    <TextBlock Text="{Binding Glossario}" Style="{StaticResource Corpo}" FontSize="13"/>
+                                                </Border>
+                                            </StackPanel>
+
+                                            <TextBlock Text="No seu PC: agora → depois de aplicar" FontWeight="SemiBold" Margin="0,18,0,6"/>
+                                            <TextBox Text="{Binding Previa, Mode=OneWay}" Style="{StaticResource CampoCodigo}" MaxHeight="170"/>
+                                            <TextBlock Text="&quot;→&quot; = vai mudar · &quot;=&quot; = já está assim" FontSize="11.5" Foreground="{DynamicResource TextoFraco}" Margin="2,4,0,0"/>
+
+                                            <StackPanel x:Name="PainelTecnico">
+                                                <TextBlock Text="O que muda no sistema (técnico)" FontWeight="SemiBold" Margin="0,18,0,6"/>
+                                                <TextBox Text="{Binding Tecnico, Mode=OneWay}" Style="{StaticResource CampoCodigo}" MaxHeight="190"/>
+                                            </StackPanel>
 
                                             <TextBlock Text="Como desfazer" FontWeight="SemiBold" Margin="0,16,0,4"/>
                                             <TextBlock Text="{Binding ComoDesfazer}" Style="{StaticResource Corpo}"/>
@@ -2291,6 +2316,21 @@
 
                             <TextBlock Style="{StaticResource Secao}" Text="Perguntas frequentes"/>
                             <StackPanel x:Name="PainelFaq"/>
+
+                            <TextBlock Style="{StaticResource Secao}" Text="Glossário: palavras que aparecem no otimizador"/>
+                            <Border Style="{StaticResource Card}">
+                                <ItemsControl x:Name="ListaGlossario">
+                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="2"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="0,6,18,6">
+                                                <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold" Foreground="{DynamicResource Acento}"/>
+                                                <TextBlock Text="{Binding Texto}" Style="{StaticResource CorpoSec}" FontSize="13"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Border>
 
                             <TextBlock Style="{StaticResource Secao}" Text="Sobre"/>
                             <Border Style="{StaticResource Card}">

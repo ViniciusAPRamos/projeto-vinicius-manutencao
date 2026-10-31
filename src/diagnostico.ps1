@@ -276,3 +276,46 @@ function Get-PiorNivel($Checagens) {
     if ($n -contains 'medio') { return 'medio' }
     return 'ok'
 }
+# ===============================================================
+#  Nota do PC sem janela + histórico de verificações (evolução)
+#  Mesma conta da página Verificar: 60% ajustes recomendados aplicados
+#  + 40% checagens de saúde sem problema.
+# ===============================================================
+function Measure-NotaPc {
+    $winReal = if ($Script:Otz.IsWin11) { '11' } else { '10' }
+    $base = 0; $aplicados = 0
+    foreach ($i in Get-Catalogo) {
+        if ($i.Tipo -eq 'acao' -or @($i.Perfis).Count -eq 0) { continue }
+        if (-not (Test-Compativel $i $winReal).Ok) { continue }
+        $e = (Get-EstadoAjuste $i).Estado
+        if ($e -eq 'na') { continue }
+        $base++
+        if ($e -eq 'aplicado') { $aplicados++ }
+    }
+    $info = Get-InfoPC
+    $checks = @(@(Get-SaudeSeguranca) + @(Get-SaudeAtualizacoes) + @(Get-SaudeHardware $info) + @(Get-SaudeVideo | Where-Object { $_.Titulo }) + @(Get-SaudeManutencao $info))
+    $validos = @($checks | Where-Object { $_.Nivel -ne 'info' })
+    $fracA = if ($base) { $aplicados / $base } else { 1 }
+    $fracS = if ($validos.Count) { @($validos | Where-Object Nivel -eq 'ok').Count / $validos.Count } else { 1 }
+    $r = [ordered]@{}
+    $r.Nota = [int][math]::Round(60 * $fracA + 40 * $fracS)
+    $r.Ajustes = "$aplicados/$base"
+    $r.Problemas = @($validos | Where-Object { $_.Nivel -in 'medio', 'alto' }).Count
+    return [pscustomobject]$r
+}
+
+function Save-Verificacao([int]$Nota, [string]$Ajustes, [int]$Problemas, [string]$Origem = 'manual') {
+    $arq = Join-Path $Script:Otz.Dados 'verificacoes.jsonl'
+    $linha = (ConvertTo-Json -Compress -InputObject ([ordered]@{ Data = (Get-Date).ToString('s'); Nota = $Nota; Ajustes = $Ajustes; Problemas = $Problemas; Origem = $Origem })) + [Environment]::NewLine
+    [IO.File]::AppendAllText($arq, $linha, (New-Object Text.UTF8Encoding $false))
+}
+
+function Get-Verificacoes([int]$Max = 30) {
+    $arq = Join-Path $Script:Otz.Dados 'verificacoes.jsonl'
+    if (-not (Test-Path $arq)) { return @() }
+    $linhas = @([IO.File]::ReadAllLines($arq, [Text.Encoding]::UTF8) | Where-Object { $_.Trim() })
+    $ini = [math]::Max(0, $linhas.Count - $Max)
+    $res = New-Object System.Collections.Generic.List[object]
+    for ($i = $ini; $i -lt $linhas.Count; $i++) { try { $res.Add(($linhas[$i] | ConvertFrom-Json)) } catch { } }
+    return $res.ToArray()
+}

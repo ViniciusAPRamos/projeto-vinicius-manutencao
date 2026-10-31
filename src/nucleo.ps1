@@ -843,6 +843,64 @@ function Invoke-Plano {
     return $resultados
 }
 
+# ---------------------------------------------------------------
+#  Perfis exportáveis (padronizar vários PCs)
+#  Arquivo JSON: { Formato, Versao, Nome, Criado, Computador, Ids[] }
+# ---------------------------------------------------------------
+$Script:PerfisProntos = @('basico', 'trabalho', 'gamer', 'leve')
+
+function Export-Perfil([string[]]$Ids, [string]$Nome, [string]$Arquivo) {
+    $dados = [ordered]@{
+        Formato    = 'otimizador-vinicius-perfil'
+        Versao     = 1
+        Nome       = $Nome
+        Criado     = (Get-Date).ToString('s')
+        Computador = $env:COMPUTERNAME
+        Ids        = @($Ids)
+    }
+    [IO.File]::WriteAllText($Arquivo, (ConvertTo-Json -InputObject $dados -Depth 4), (New-Object Text.UTF8Encoding $false))
+    Write-Log "Perfil '$Nome' exportado ($($Ids.Count) ajustes): $Arquivo"
+}
+
+function Import-Perfil([string]$Arquivo) {
+    if (-not (Test-Path $Arquivo)) { throw "Arquivo não encontrado: $Arquivo" }
+    $p = $null
+    try { $p = [IO.File]::ReadAllText($Arquivo, [Text.Encoding]::UTF8) | ConvertFrom-Json } catch { }
+    if (-not $p -or $p.Formato -ne 'otimizador-vinicius-perfil') { throw 'Este arquivo não é um perfil do Otimizador Vinicius (exporte pelo botão Exportar, em Otimizar).' }
+    return $p
+}
+
+# Ids de um perfil pronto (basico/trabalho/gamer/leve) ou de um arquivo .json
+function Resolve-IdsPerfil([string]$Origem) {
+    if ($Script:PerfisProntos -contains $Origem.ToLowerInvariant()) {
+        $nome = $Origem.ToLowerInvariant()
+        $ids = @(Get-Catalogo | Where-Object { $_.Perfis -contains $nome -and $_.Risco -ne 'avancado' } | ForEach-Object Id)
+        return @{ Nome = $nome; Ids = $ids }
+    }
+    $p = Import-Perfil $Origem
+    return @{ Nome = [string]$p.Nome; Ids = @($p.Ids) }
+}
+
+# Aplica um perfil sem janela (linha de comando / tarefa agendada).
+# Pula o que não existe neste Windows. Devolve os resultados.
+function Invoke-PerfilSilencioso([string]$Origem, [bool]$CriarPonto = $true) {
+    $perfil = Resolve-IdsPerfil $Origem
+    $winReal = if ($Script:Otz.IsWin11) { '11' } else { '10' }
+    $catalogo = @{}
+    foreach ($i in Get-Catalogo) { $catalogo[$i.Id] = $i }
+    $validos = New-Object System.Collections.Generic.List[string]
+    $pulados = New-Object System.Collections.Generic.List[string]
+    foreach ($id in $perfil.Ids) {
+        if (-not $catalogo.ContainsKey($id)) { $pulados.Add("$id (não existe nesta versão do otimizador)"); continue }
+        $c = Test-Compativel $catalogo[$id] $winReal
+        if ($c.Ok) { $validos.Add($id) } else { $pulados.Add("$($catalogo[$id].Nome): $($c.Motivo)") }
+    }
+    Write-Log "Perfil silencioso '$($perfil.Nome)': $($validos.Count) para aplicar, $($pulados.Count) pulados."
+    $res = @()
+    if ($validos.Count) { $res = @(Invoke-Plano -Ids $validos.ToArray() -Modo aplicar -CriarPonto $CriarPonto) }
+    return @{ Nome = $perfil.Nome; Resultados = $res; Pulados = $pulados.ToArray() }
+}
+
 # Estado de todos os itens (usado na abertura e após aplicar)
 function Get-EstadoTodos {
     $originais = Get-Originais

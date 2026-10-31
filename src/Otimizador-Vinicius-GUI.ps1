@@ -14,6 +14,13 @@
      eventos por uma fila; um timer na interface lê a fila. Assim a
      janela nunca trava.
 
+     Modo silencioso (sem janela, para padronizar vários PCs):
+       -Perfil <basico|trabalho|gamer|leve|arquivo.json>
+                         aplica o perfil e mostra o resumo no console
+       -SemPausa         não espera Enter no final (scripts e tarefas)
+       -Manutencao <config.json>
+                         manutenção agendada (usado pela tarefa do Windows)
+
      Parâmetros de desenvolvimento:
        -SemElevar        abre sem administrador (só visualização)
        -Captura <pasta>  salva imagens das telas e fecha (teste visual)
@@ -21,24 +28,79 @@
 #>
 param(
     [switch]$SemElevar,
-    [string]$Captura
+    [string]$Captura,
+    [string]$Perfil,
+    [switch]$SemPausa,
+    [string]$Manutencao
 )
 
 $ErrorActionPreference = 'Stop'
 $Script:SrcDir = $PSScriptRoot
+$Script:Silencioso = [bool]($Perfil -or $Manutencao)
 
 # ---------------------------------------------------------------
-#  Elevação
+#  Elevação (repassa os parâmetros do modo silencioso)
 # ---------------------------------------------------------------
 $ehAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $ehAdmin -and -not $SemElevar -and -not $Captura) {
+    $argsElev = "-NoProfile -ExecutionPolicy Bypass -STA -File `"$PSCommandPath`""
+    $estilo = 'Hidden'
+    if ($Perfil) { $argsElev += " -Perfil `"$Perfil`""; $estilo = 'Normal' }
+    if ($SemPausa) { $argsElev += ' -SemPausa' }
+    if ($Manutencao) { $argsElev += " -Manutencao `"$Manutencao`"" }
+    if (-not $Script:Silencioso) { $argsElev = "-WindowStyle Hidden $argsElev" }
     try {
-        Start-Process powershell.exe -Verb RunAs -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File `"$PSCommandPath`""
+        Start-Process powershell.exe -Verb RunAs -WindowStyle $estilo -ArgumentList $argsElev
     } catch {
+        if ($Script:Silencioso) { Write-Host 'É preciso permissão de administrador.' -ForegroundColor Red; exit 1 }
         Add-Type -AssemblyName PresentationFramework
         [void][Windows.MessageBox]::Show('O otimizador precisa de permissão de administrador para alterar o sistema. Abra de novo e clique em "Sim".', 'Otimizador Vinicius', 'OK', 'Warning')
     }
     exit
+}
+
+# ---------------------------------------------------------------
+#  Modo silencioso: sem janela
+# ---------------------------------------------------------------
+if ($Script:Silencioso) {
+    $codigo = 0
+    try {
+        . (Join-Path $Script:SrcDir 'nucleo.ps1')
+        . (Join-Path $Script:SrcDir 'ferramentas.ps1')
+        . (Join-Path $Script:SrcDir 'diagnostico.ps1')
+        . (Join-Path $Script:SrcDir 'seguranca.ps1')
+        . (Join-Path $Script:SrcDir 'manutencao.ps1')
+        Initialize-Otz -SrcDir $Script:SrcDir -SidAlvo (Get-SidUsuarioSessao)
+        if ($Manutencao) {
+            $r = Invoke-ManutencaoAgendada $Manutencao
+            if ($r.Erros) { $codigo = 1 }
+        } else {
+            $host.UI.RawUI.WindowTitle = "Otimizador Vinicius - aplicando perfil $Perfil"
+            Write-Host "Otimizador Vinicius v$($Otz.Versao) - modo silencioso" -ForegroundColor Cyan
+            Write-Host "Perfil: $Perfil" -ForegroundColor Cyan
+            Write-Host ''
+            $r = Invoke-PerfilSilencioso $Perfil
+            foreach ($x in $r.Resultados) {
+                $cor = switch ($x.Status) { 'ok' { 'Green' } 'erro' { 'Red' } default { 'Yellow' } }
+                $marca = switch ($x.Status) { 'ok' { '[OK]  ' } 'erro' { '[ERRO]' } default { '[AVISO]' } }
+                Write-Host ("  {0} {1}" -f $marca, $x.Nome) -ForegroundColor $cor
+                if ($x.Status -ne 'ok' -and $x.Mensagem) { Write-Host "         $($x.Mensagem)" -ForegroundColor DarkGray }
+            }
+            foreach ($p in $r.Pulados) { Write-Host "  [PULADO] $p" -ForegroundColor DarkGray }
+            $ok = @($r.Resultados | Where-Object Status -eq 'ok').Count
+            $er = @($r.Resultados | Where-Object Status -eq 'erro').Count
+            Write-Host ''
+            Write-Host "Resumo: $ok aplicado(s), $er erro(s), $($r.Pulados.Count) pulado(s). Log: $($Otz.ArqLog)" -ForegroundColor Cyan
+            if (@($r.Resultados | Where-Object { $_.Status -eq 'ok' -and $_.Reinicio -eq 'reiniciar' }).Count) { Write-Host 'Reinicie o PC para concluir.' -ForegroundColor Yellow }
+            if ($er) { $codigo = 1 }
+        }
+    } catch {
+        Write-Host "Falhou: $($_.Exception.Message)" -ForegroundColor Red
+        try { Write-Log "Modo silencioso falhou: $($_.Exception.Message)" } catch { }
+        $codigo = 2
+    }
+    if ($Perfil -and -not $SemPausa) { Write-Host ''; [void](Read-Host 'Pressione Enter para fechar') }
+    exit $codigo
 }
 
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
@@ -60,6 +122,8 @@ try {
     . (Join-Path $Script:SrcDir 'ferramentas.ps1')
     . (Join-Path $Script:SrcDir 'diagnostico.ps1')
     . (Join-Path $Script:SrcDir 'seguranca.ps1')
+    . (Join-Path $Script:SrcDir 'manutencao.ps1')
+    . (Join-Path $Script:SrcDir 'glossario.ps1')
     $sidAlvo = if ($ehAdmin) { Get-SidUsuarioSessao } else { $null }
     Initialize-Otz -SrcDir $Script:SrcDir -SidAlvo $sidAlvo
     Write-Log "===== Otimizador v$($Otz.Versao) aberto (admin: $ehAdmin) ====="
@@ -130,7 +194,7 @@ function Set-Tema([string]$Nome) {
 }
 
 function Save-Preferencias {
-    try { [IO.File]::WriteAllText($S.ArqPrefs, (@{ Tema = $S.Tema } | ConvertTo-Json), (New-Object Text.UTF8Encoding $false)) } catch { }
+    try { [IO.File]::WriteAllText($S.ArqPrefs, (@{ Tema = $S.Tema; Avancado = [bool]$S.ModoAvancado } | ConvertTo-Json), (New-Object Text.UTF8Encoding $false)) } catch { }
 }
 
 function Get-TemaInicial {
@@ -366,6 +430,7 @@ foreach ($i in $S.Catalogo) {
     $a.Confirmar = [string]$i.Confirmar
     $a.Tipo = $i.Tipo; $a.Risco = $i.Risco; $a.Reinicio = $i.Reinicio
     $a.Perfis = [string[]]@($i.Perfis); $a.Ordem = $i.Ordem
+    $a.Glossario = Get-GlossarioTexto "$($i.Nome) $($i.Resumo) $($i.Detalhe) $($i.Atencao)"
     $a.ComoDesfazer = if ($i.ComoDesfazer) { $i.ComoDesfazer }
                       elseif ($i.Tipo -eq 'acao') { 'Ação única, não tem desfazer.' }
                       else { 'Clique em "Desfazer este ajuste" (aqui ou em Histórico > Desfazer todos). O valor original foi guardado antes da mudança.' }
@@ -392,6 +457,7 @@ foreach ($a in $S.Ajustes) { $S["Busca_$($a.Id)"] = Remove-Acentos "$($a.Nome) $
 
 $S.View.Filter = [Predicate[object]]{
     param($o)
+    if (-not $S.ModoAvancado -and $o.Risco -eq 'avancado') { return $false }
     if ($UI.ChkSoPendentes.IsChecked -and ($o.Estado -eq 'aplicado' -or $o.Estado -eq 'na' -or -not $o.Habilitado)) { return $false }
     $q = $S.Busca
     if (-not $q) { return $true }
@@ -521,6 +587,92 @@ $UI.BtnLimparSelecao.Add_Click({
 })
 
 # ---------------------------------------------------------------
+#  Prévia "agora → depois" do item aberto (calculada em segundo plano)
+# ---------------------------------------------------------------
+function Update-Previa($Ajuste) {
+    if (-not $Ajuste -or $Ajuste.Previa) { return }
+    $Ajuste.Previa = 'Lendo o valor atual neste PC...'
+    Start-Tarefa -Nome "previa-$($Ajuste.Id)" -Parametros @{ Id = $Ajuste.Id } `
+        -Script '$Parametros.Id; ((Get-SimulacaoAjuste (Get-Catalogo | Where-Object { $_.Id -eq $Parametros.Id } | Select-Object -First 1)) -join "`n")' `
+        -AoTerminar {
+            param($saida, $erro)
+            $saida = @($saida)
+            if ($saida.Count -lt 1) { return }
+            $x = $S.PorId[[string]$saida[0]]
+            if (-not $x) { return }
+            $x.Previa = if ($erro) { "Não foi possível ler: $erro" } elseif ($saida.Count -gt 1 -and $saida[1]) { [string]$saida[1] } else { 'Sem dados para mostrar.' }
+        }
+}
+$UI.ListaAjustes.Add_SelectionChanged({ Update-Previa $UI.ListaAjustes.SelectedItem })
+
+# ---------------------------------------------------------------
+#  Modo simples / avançado
+#  Simples: esconde detalhes técnicos, a escolha manual do Windows e os
+#  ajustes avançados. Avançado: mostra tudo.
+# ---------------------------------------------------------------
+function Set-ModoAvancado([bool]$Avancado) {
+    $S.ModoAvancado = $Avancado
+    $vis = if ($Avancado) { 'Visible' } else { 'Collapsed' }
+    $UI.PainelWindows.Visibility = $vis
+    $UI.PainelTecnico.Visibility = $vis
+    if (-not $Avancado) {
+        foreach ($a in $S.Ajustes) { if ($a.Risco -eq 'avancado') { $a.Selecionado = $false } }
+    }
+    $S.View.Refresh()
+    Update-Rodape
+}
+$UI.ChkAvancado.Add_Click({
+    Set-ModoAvancado ([bool]$UI.ChkAvancado.IsChecked)
+    Save-Preferencias
+    Show-Toast $(if ($S.ModoAvancado) { 'Modo avançado: detalhes técnicos e ajustes avançados visíveis.' } else { 'Modo simples: só o essencial, sem detalhes técnicos.' }) 'info'
+})
+
+# ---------------------------------------------------------------
+#  Perfis exportáveis (aplicar igual em vários PCs)
+# ---------------------------------------------------------------
+$UI.BtnExportarPerfil.Add_Click({
+    $ids = @($S.Ajustes | Where-Object Selecionado | ForEach-Object Id)
+    if ($ids.Count -eq 0) { Show-Toast 'Marque os ajustes que vão no perfil (ou escolha um perfil pronto) e clique em Exportar.' 'aviso'; return }
+    $dlg = New-Object Microsoft.Win32.SaveFileDialog
+    $base = if ($S.Perfil -ne 'personalizado') { $S.Perfil } else { 'meu-perfil' }
+    $dlg.FileName = "perfil-$base.json"
+    $dlg.InitialDirectory = $Otz.Dados
+    $dlg.Filter = 'Perfil do Otimizador (*.json)|*.json'
+    if (-not $dlg.ShowDialog()) { return }
+    try {
+        $nome = [IO.Path]::GetFileNameWithoutExtension($dlg.FileName) -replace '^perfil-', ''
+        Export-Perfil $ids $nome $dlg.FileName
+        Show-Dialogo -Titulo "Perfil '$nome' salvo" -Tipo 'info' -SoOk -TextoOk 'Entendi' `
+            -Texto "$($ids.Count) ajuste(s) no arquivo:`n$($dlg.FileName)`n`nPara aplicar em outro PC: copie a pasta do otimizador e o arquivo, e rode:`nAplicar-Perfil.bat `"$([IO.Path]::GetFileName($dlg.FileName))`"`n`nOu abra o otimizador lá e use Otimizar > Importar."
+    } catch { Show-Toast "Não foi possível salvar: $($_.Exception.Message)" 'erro' }
+})
+
+$UI.BtnImportarPerfil.Add_Click({
+    $dlg = New-Object Microsoft.Win32.OpenFileDialog
+    $dlg.InitialDirectory = $Otz.Dados
+    $dlg.Filter = 'Perfil do Otimizador (*.json)|*.json'
+    if (-not $dlg.ShowDialog()) { return }
+    try {
+        $p = Import-Perfil $dlg.FileName
+        $UI.RbPerfilNenhum.IsChecked = $true
+        $marcados = 0; $fora = 0; $jaFeitos = 0
+        foreach ($a in $S.Ajustes) { $a.Selecionado = $false }
+        foreach ($id in @($p.Ids)) {
+            $a = $S.PorId[[string]$id]
+            if (-not $a -or -not $a.Habilitado) { $fora++; continue }
+            if ($a.Estado -eq 'aplicado') { $jaFeitos++; continue }
+            if ($a.Risco -eq 'avancado' -and -not $S.ModoAvancado) { $UI.ChkAvancado.IsChecked = $true; Set-ModoAvancado $true }
+            $a.Selecionado = $true; $marcados++
+        }
+        Update-Rodape
+        $txt = "Perfil '$($p.Nome)' (criado em $($p.Computador)): $marcados ajuste(s) marcados."
+        if ($jaFeitos) { $txt += " $jaFeitos já estavam aplicados." }
+        if ($fora) { $txt += " $fora não se aplicam a este PC." }
+        Show-Toast "$txt Revise e clique em Aplicar." 'info'
+    } catch { Show-Toast $_.Exception.Message 'erro' }
+})
+
+# ---------------------------------------------------------------
 #  Estado (detecção em segundo plano)
 # ---------------------------------------------------------------
 function Start-Deteccao {
@@ -541,6 +693,8 @@ function Start-Deteccao {
         $n = @($S.Ajustes | Where-Object PodeDesfazer).Count
         $UI.TxtDesfazerTudo.Text = if ($n) { "Desfazer todos ($n)" } else { 'Desfazer todos' }
         $UI.BtnDesfazerTudo.IsEnabled = ($n -gt 0)
+        foreach ($x in $S.Ajustes) { $x.Previa = '' }
+        if ($UI.ListaAjustes.SelectedItem) { Update-Previa $UI.ListaAjustes.SelectedItem }
     }
 }
 
@@ -764,7 +918,7 @@ function Receive-EventoExecucao($ev) {
                 $cont = $UI.ListaExec.ItemContainerGenerator.ContainerFromItem($a)
                 if ($cont) { $cont.BringIntoView() }
             } else {
-                $a.ExecucaoTexto = [string]$ev.Mensagem
+                $a.ExecucaoTexto = if ($ev.Status -eq 'ok' -and $S.ExecModo -eq 'aplicar' -and [string]$ev.Mensagem -eq 'Aplicado.') { "O que mudou: $($a.Resumo)" } else { [string]$ev.Mensagem }
                 $S.ExecFeitos++
                 $UI.TxtExecContagem.Text = "$($S.ExecFeitos) de $($S.ExecTotal)"
                 Start-Animacao $UI.BarraExec ([Windows.Controls.Primitives.RangeBase]::ValueProperty) $null (100 * $S.ExecFeitos / $S.ExecTotal) 350
@@ -1979,6 +2133,15 @@ if ($Otz.SidAlvo) {
 #  Início
 # ===============================================================
 Set-Tema (Get-TemaInicial)
+
+# Modo simples/avançado: lembra a última escolha (padrão: simples)
+$S.ModoAvancado = $false
+try { if (Test-Path $S.ArqPrefs) { $S.ModoAvancado = [bool](([IO.File]::ReadAllText($S.ArqPrefs) | ConvertFrom-Json).Avancado) } } catch { }
+$UI.ChkAvancado.IsChecked = $S.ModoAvancado
+Set-ModoAvancado $S.ModoAvancado
+
+# Glossário na Ajuda
+$UI.ListaGlossario.ItemsSource = ConvertTo-Linhas @($Glossario | ForEach-Object { New-Linha -Titulo $_.Termo -Texto $_.Explicacao })
 Set-Saudacao
 Set-Perfil 'personalizado'
 Update-Compatibilidade
@@ -2053,6 +2216,17 @@ if ($Captura) {
         { Show-Ferramenta 'RbFerProgramas' }
         { }
         { Save-Captura '21-programas' }
+        { Open-Pagina 'NavOtimizar'; $UI.ListaAjustes.SelectedItem = $S.PorId['game.hags']; $UI.ListaAjustes.ScrollIntoView($S.PorId['game.hags']) }
+        { }
+        { Save-Captura '22-detalhe-simples' }
+        { $UI.RolagemDetalhe.ScrollToVerticalOffset(330) }
+        { Save-Captura '22b-detalhe-previa' }
+        { $UI.RolagemDetalhe.ScrollToTop() }
+        { $UI.ChkAvancado.IsChecked = $true; Set-ModoAvancado $true }
+        { Save-Captura '23-detalhe-avancado' }
+        { Set-ModoAvancado $false; $UI.ChkAvancado.IsChecked = $false; Open-Pagina 'NavAjuda' }
+        { $UI.PagAjuda.ScrollToEnd() }
+        { Save-Captura '24-glossario' }
         { Open-Pagina 'NavHistorico' }
         { Save-Captura '7-historico' }
         { Open-Pagina 'NavAjuda' }

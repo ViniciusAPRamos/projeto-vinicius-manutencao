@@ -27,6 +27,9 @@
 | `src/analise.ps1` | Página Diagnóstico (só leitura): `Get-DiagnosticoLentidao` (contadores brutos Win32_PerfRawData, 2 leituras), `Get-HistoricoBoot` (log Diagnostics-Performance, eventos 100/101-109, exige admin), `Get-Estabilidade` (Kernel-Power 41, BugCheck 1001, WHEA, Application 1000/1002, índice de confiabilidade), `Get-QualidadeConexao`, `Get-ChecklistBios`, e o antes × depois (`Save-/Get-MedicaoReferencia`, `Get-Comparacao`). |
 | `src/programas.ps1` | Apps que vieram com o Windows (`$Script:AppsConhecidos`, remoção um por um), programas por tamanho (EstimatedSize) e Modo jogo (`Start-/Stop-ModoJogo`, estado em `modo-jogo.json`). |
 | `src/inventario.ps1` + `src/Inventario-PC.bat` | Inventário de vários PCs: `<PC>.json` numa pasta (sem admin), tabela em Ferramentas > Vários PCs e CSV para o Excel. Parâmetro `-Inventario <pasta>`. |
+| `src/segundoplano.ps1` + `src/conhecidos.ps1` | "Limpar o segundo plano" (página Serviços e ajuste `serv.segundo-plano`): serviços de terceiros em Automático → Manual e itens de inicialização desligados, com desfazer (`segundo-plano.json`). `conhecidos.ps1` é a base de conhecimento (seguro / depende / manter; desconhecido nunca vem marcado nem entra em modo silencioso). Guardião semanal na manutenção agendada. |
+| `src/desinstalar.ps1` | Ferramentas > Desinstalar: desinstalador oficial (silencioso só para MSI, Inno Setup ou QuietUninstallString), espera a entrada sumir (NSIS se copia para o Temp), procura sobras (pastas, registro, inicialização, tarefas, serviços, entrada órfã) e apaga o que o usuário marcar: pastas para a Lixeira, registro com backup .reg. Nunca apaga pasta onde mora outro programa (ex.: `Program Files\Epic Games` guarda os jogos). Apps da Store: todas as contas + provisionado. |
+| `tools/coletar-segundo-plano.ps1` | Coleta só leitura (serviços, inicialização, tarefas, processos, programas) para calibrar a base de conhecimento com PCs reais. |
 | `src/ui/Tela.cs` | Win32 `EnumDisplaySettings`/`ChangeDisplaySettingsEx`: Hz atual e máximo de cada monitor. |
 | `src/ferramentas.ps1` | `Get-InfoPC`, relatório HTML, inicialização, drivers serial, DNS, teste TCP, `Invoke-ProcessoAoVivo` (SFC/DISM/winget), lista winget. |
 | `src/catalogo/NN-*.ps1` | Um arquivo por categoria; cada item é um hashtable (ver `docs/catalogo.md`). 78 itens em 14 categorias. Tipos de mudança suportados pelo motor: `Registro`, `Energia` (com `Corrente = 'dc'` para bateria), `Servicos` (sc config), `DirectX` (string global de jogos) ou código próprio. |
@@ -132,6 +135,7 @@
 2. ~~Colocar o projeto no **Git**~~ ✅ feito (estrutura `src/`, `config/`, `docs/`; `.gitattributes` força CRLF).
 3. Validar os IDs do winget, o StartupApproved no Win10, o valor do Num Lock (`2` ou `2147483650`), os nomes `VRROptimizeEnable`/`AutoHDREnable` e os GUIDs de tampa/economia de bateria num notebook.
 4. Testar num **Windows 10** (VM): itens exclusivos, fonte Segoe MDL2 e notícias e interesses.
+7. Validar a "Limpar o segundo plano" e o desinstalador (plano de testes, fase 5e) no Dell G15 de teste e no desktop; ampliar `conhecidos.ps1` com o que aparecer como "Não reconhecido" em outros PCs.
 6. Validar a 5ª rodada (plano de testes, fase 5d): campos do log de boot (só com admin), `New-CimInstance Win32_PageFileSetting` no desfazer da paginação, leitura do Wi-Fi em português, nomes de pacote dos apps de fabricante (prefixos AD2F1837/E046963F/B9ECED6F etc.), heurística do Resizable BAR (BAR1 ≈ VRAM) contra o Painel NVIDIA.
 5. Validar os itens dos lotes B–E (plano de testes, fase 5c): leitura de senhas Wi-Fi do `netsh` em português (só testável com placa Wi-Fi), políticas de navegador em `edge://policy`/`chrome://policy`, `Aplicar-Perfil.bat` e a tarefa agendada de manutenção.
 
@@ -319,6 +323,7 @@ Todas causaram bugs reais. Conferir sempre que escrever código novo.
 | `.bat` com BOM | O `cmd` quebra na 1ª linha | `.bat` em ASCII + CRLF. |
 | Variáveis não diferenciam maiúsculas | `foreach ($s in ...)` ou `param($s, $e)` sobrescreve o estado global `$S` (quebrou o Enter do teste de servidor) | Nunca usar `$s`, `$ui`, `$win`, `$otz` como variável local. |
 | Função com nome de apelido | `function R { }` perde para o apelido `R` (Invoke-History) | Nomes descritivos (`Substituir`), nunca 1 letra. |
+| `Get-CimInstance Win32_Service` | Trava sem resposta num Dell G15 (serviço/driver de terceiros que não responde ao WMI) | Estado com `Get-Service`, PID com `tasklist /svc /fo csv`, modo pelo registro (`Get-ServicosCache`). |
 | `Get-WinEvent -FilterHashtable` sem permissão | "Acesso negado" vira "Nenhum evento encontrado" (o boot parecia nunca ter sido medido) | Testar antes com `Get-WinEvent -LogName X -MaxEvents 1` e capturar `UnauthorizedAccessException`. |
 | `.GetNewClosure()` em evento da janela | O bloco perde as funções do script (ficam no escopo do script, não no global) | Guardar o valor em `$S.Algo` e ler dentro do bloco. |
 | `"a" + (lista) -join "x"` | `+` vem antes do `-join`: junta errado | Parênteses: `"a" + ((lista) -join "x")`. |

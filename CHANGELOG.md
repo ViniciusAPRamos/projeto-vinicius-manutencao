@@ -2,6 +2,12 @@
 
 ## [2.0] — em teste
 
+### Novo (6ª rodada: segundo plano e desinstalador)
+- **Limpar o segundo plano** (página Serviços): programas de terceiros que ligam sozinhos com o Windows (agentes do fabricante, launchers, acesso remoto, atualizadores), com a RAM de cada um e a explicação do que muda. Recomendados vêm marcados; "depende do uso" e não reconhecidos, nunca. Aplica uma vez (serviço → Manual, inicialização desligada), com desfazer e um **Guardião** semanal que desliga de novo o que uma atualização religar. Anti-cheat (Vanguard, EA, BattlEye...), drivers, ventoinhas e Microsoft nunca entram. Também é o ajuste `serv.segundo-plano` (perfis Gamer/PC simples e `Aplicar-Perfil.bat`, só com os recomendados).
+- Guia "fechar de verdade" para quem continua rodando na bandeja (Discord, Steam, EA, NVIDIA Overlay, overlay do AWCC).
+- **Desinstalar** (Ferramentas): todos os programas e apps da Store, com busca e filtro. Usa o desinstalador oficial (sem janelas quando o programa permite), procura as sobras e mostra para conferir; pastas vão para a Lixeira e o registro ganha backup. Nunca apaga pasta compartilhada com outro programa. Apps da Store saem de todas as contas.
+- Correção: serviços lidos sem WMI (`Win32_Service` travava num Dell G15).
+
 ### Novo (5ª rodada: diagnóstico e ferramentas)
 - **Página Diagnóstico** (só leitura):
   - **Por que está lento?** CPU, RAM e disco em 2 segundos, quem mais usa cada um (com nome amigável e botão Finalizar) e conclusões em linguagem simples (Defender verificando, Windows Update instalando, navegador com muita memória, disco em 100%, GPU quente...).

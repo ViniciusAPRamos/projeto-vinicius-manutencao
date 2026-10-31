@@ -81,5 +81,15 @@ O log fica em `Documentos\OtimizadorVinicius\log_<data>.txt` (Histórico > Log d
 - [ ] `src\Inventario-PC.bat <pasta>` sem administrador grava o .json; Ferramentas > Vários PCs lê a pasta e exporta a planilha (abre certo no Excel).
 - [ ] Histórico > Antes × depois: aplicar algo pela primeira vez grava a referência; depois de reiniciar, o tempo para ligar aparece nas duas colunas.
 
+## Fase 5e: segundo plano e desinstalador
+- [ ] **Dell G15:** Serviços > Limpar o segundo plano lista Dell SupportAssist/TechHub/Connected/Update como "Recomendado" e Discord, Steam, EA e AnyDesk como "Depende do uso". Anotar a RAM antes, aplicar, reiniciar e anotar de novo (meta: de ~60% para ~45%).
+- [ ] Depois de aplicar: `services.msc` mostra os serviços em Manual; o Gerenciador de Tarefas > Inicializar mostra os itens desativados; a tarefa "Otimizador Vinicius - Manutencao" existe com o Guardião.
+- [ ] Desmarcar um item e "Aplicar a escolha": ele volta ao normal. "Desfazer tudo" volta todos (serviços religados).
+- [ ] Página Serviços abre no notebook sem travar (o WMI de serviços travava lá).
+- [ ] `Aplicar-Perfil.bat gamer`: aplica só os itens "Recomendado".
+- [ ] Desinstalar um programa MSI pequeno (ex.: Flameshot) sem janelas; conferir a lista de sobras e apagar; a pasta aparece na Lixeira e o .reg em Backups.
+- [ ] Desinstalar um programa NSIS/.exe (abre a janela do desinstalador): o otimizador espera terminar.
+- [ ] Remover um app da Store "de todas as contas" e conferir que não aparece em uma conta nova.
+
 ## Fase 6: desfazer tudo
 - [ ] Histórico > Desfazer todos. Conferir que os itens voltam para "Pendente" (exceto os que já estavam aplicados antes do otimizador).

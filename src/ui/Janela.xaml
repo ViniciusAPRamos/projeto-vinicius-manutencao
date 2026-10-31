@@ -877,6 +877,25 @@
             </Border>
         </DataTemplate>
 
+        <!-- Linha com caixa de marcar (desinstalar, sobras): Extra = aviso amarelo, Icone = valor à direita -->
+        <DataTemplate x:Key="ModeloMarcavel">
+            <Border x:Name="C" Background="{DynamicResource Superficie}" BorderBrush="{DynamicResource Borda}" BorderThickness="1" CornerRadius="12" Padding="14,9" Margin="0,0,0,5">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <CheckBox Style="{StaticResource Caixa}" IsChecked="{Binding Marcado, Mode=TwoWay}" VerticalAlignment="Top" Margin="0,2,12,0"/>
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding Texto}" Foreground="{DynamicResource TextoSec}" FontSize="12.5" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding Extra}" Foreground="{DynamicResource Aviso}" FontSize="12" TextWrapping="Wrap" Visibility="{Binding TemExtra, Converter={StaticResource B2V}}"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="2" Text="{Binding Icone}" FontWeight="SemiBold" VerticalAlignment="Top" Margin="12,2,0,0"/>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Marcado}" Value="True"><Setter TargetName="C" Property="BorderBrush" Value="{DynamicResource Acento}"/></DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
         <!-- Antes × depois (Histórico) -->
         <DataTemplate x:Key="ModeloComparacao">
             <Grid Margin="0,6">
@@ -1537,7 +1556,8 @@
                                 <WrapPanel Grid.Column="1">
                                     <RadioButton x:Name="RbFerProgramas" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE896;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Programas"/></StackPanel></RadioButton>
                                     <RadioButton x:Name="RbFerApps" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE71D;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Apps do Windows"/></StackPanel></RadioButton>
-                                    <RadioButton x:Name="RbFerOffice" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8A5;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Desinstalar Office"/></StackPanel></RadioButton>
+                                    <RadioButton x:Name="RbFerDesinstalar" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE74D;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Desinstalar"/></StackPanel></RadioButton>
+                                    <RadioButton x:Name="RbFerOffice" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8A5;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Remover Office"/></StackPanel></RadioButton>
                                     <RadioButton x:Name="RbFerProtecao" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72E;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Proteção (antivírus)"/></StackPanel></RadioButton>
                                 </WrapPanel>
                             </Grid>
@@ -2408,6 +2428,65 @@
                                     <ItemsControl x:Name="ListaApps" ItemTemplate="{StaticResource ModeloRemovivel}"/>
                                 </StackPanel>
                             </ScrollViewer>
+                            <!-- Desinstalar programas por completo -->
+                            <Grid x:Name="FerDesinstalar" Visibility="Collapsed">
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                <Border Style="{StaticResource Card}" Margin="0,0,0,10" Padding="18,12">
+                                    <StackPanel>
+                                        <TextBlock x:Name="TxtDesStatus" Style="{StaticResource CorpoSec}" FontSize="13" TextWrapping="Wrap" Text="Remove pelo desinstalador oficial e depois mostra o que ficou para trás (pastas, registro, inicialização, tarefas, serviços) para você conferir antes de apagar."/>
+                                        <Grid Margin="0,10,0,0">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <TextBox x:Name="TxtDesBusca" Style="{StaticResource Campo}" ToolTip="Procurar pelo nome ou fabricante"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="10,0,0,0">
+                                                <RadioButton x:Name="RbDesTodos" Style="{StaticResource Pill}" GroupName="des" Content="Todos" IsChecked="True"/>
+                                                <RadioButton x:Name="RbDesProgramas" Style="{StaticResource Pill}" GroupName="des" Content="Programas"/>
+                                                <RadioButton x:Name="RbDesApps" Style="{StaticResource Pill}" GroupName="des" Content="Apps da Store"/>
+                                                <Button x:Name="BtnDesAtualizar" Style="{StaticResource BtnFantasma}" Padding="10,5" ToolTip="Ler a lista de novo"><TextBlock Text="&#xE72C;" Style="{StaticResource IconeBtn}" Margin="0"/></Button>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                                <ScrollViewer x:Name="RolagemDes" Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                    <StackPanel>
+                                        <!-- Sobras encontradas depois de desinstalar -->
+                                        <Border x:Name="CardSobras" Style="{StaticResource Card}" Margin="0,0,0,12" Visibility="Collapsed" BorderBrush="{DynamicResource Acento}">
+                                            <StackPanel>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                    <StackPanel>
+                                                        <TextBlock Text="O que ficou para trás" FontWeight="SemiBold" FontSize="15"/>
+                                                        <TextBlock x:Name="TxtSobras" Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="12,0,0,0">
+                                                        <Button x:Name="BtnSobrasIgnorar" Style="{StaticResource BtnFantasma}" Margin="0,0,8,0" Content="Deixar como está"/>
+                                                        <Button x:Name="BtnSobrasApagar" Style="{StaticResource BtnPrimario}">
+                                                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE74D;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Apagar marcados"/></StackPanel>
+                                                        </Button>
+                                                    </StackPanel>
+                                                </Grid>
+                                                <ItemsControl x:Name="ListaSobras" ItemTemplate="{StaticResource ModeloMarcavel}" Margin="0,10,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <ItemsControl x:Name="ListaDesRes" ItemTemplate="{StaticResource ModeloSaude}" Margin="0,0,0,8"/>
+                                        <ItemsControl x:Name="ListaDes" ItemTemplate="{StaticResource ModeloMarcavel}"/>
+                                    </StackPanel>
+                                </ScrollViewer>
+                                <Border Grid.Row="2" Style="{StaticResource Card}" Padding="16,12" Margin="0,10,0,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock x:Name="TxtDesSelecao" Text="Nenhum programa marcado" FontWeight="SemiBold"/>
+                                            <WrapPanel Margin="0,6,0,0">
+                                                <CheckBox x:Name="ChkDesSilencioso" Style="{StaticResource Interruptor}" IsChecked="True" Margin="0,0,18,0" Foreground="{DynamicResource TextoSec}" Content="Sem janelas quando o programa permite"/>
+                                                <CheckBox x:Name="ChkDesTodosUsuarios" Style="{StaticResource Interruptor}" IsChecked="True" Foreground="{DynamicResource TextoSec}" Content="Apps da Store: de todas as contas"/>
+                                            </WrapPanel>
+                                        </StackPanel>
+                                        <Button x:Name="BtnDesinstalar" Grid.Column="1" Style="{StaticResource BtnPerigo}" IsEnabled="False" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE74D;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Desinstalar"/></StackPanel>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </Grid>
                             <!-- Vários PCs (inventário) -->
                             <ScrollViewer x:Name="FerFrota" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                                 <StackPanel>

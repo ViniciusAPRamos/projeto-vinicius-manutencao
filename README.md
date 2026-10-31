@@ -30,7 +30,8 @@ O menu de texto antigo (v1.1) continua em `src\Executar-Modo-Texto.bat`.
 - **78 ajustes** em 14 categorias, incluindo placa de vídeo, notebook, serviços, navegadores, memória virtual, TRIM do SSD e limpeza de componentes do Windows.
 - **Antes × depois:** o Histórico compara tempo para ligar, programas na inicialização, serviços e memória com a "foto" tirada antes da primeira otimização.
 - **Placa de vídeo:** modos Desempenho máximo / Balanceado / Qualidade, monitor na taxa máxima e guia do painel NVIDIA/AMD/Intel.
-- **Notebook:** saúde da bateria e ajustes só para bateria. **Serviços:** desliga serviços desnecessários mostrando quanta RAM cada um usa.
+- **Notebook:** saúde da bateria e ajustes só para bateria. **Serviços:** desliga serviços desnecessários mostrando quanta RAM cada um usa, e **Limpar o segundo plano** tira os programas de terceiros que abrem sozinhos (fabricante, launchers, agentes), aplicando uma vez, com desfazer e Guardião semanal.
+- **Desinstalar por completo:** desinstalador oficial + busca de sobras (pastas, registro, inicialização, tarefas, serviços), com Lixeira e backup do registro.
 - **Entender antes de aplicar:** prévia "agora → depois" no seu PC, glossário, modo simples/avançado e "o que mudou" depois de aplicar.
 - **Ferramentas** (em grupos): modo jogo (fecha programas e volta tudo depois), apps que vieram com o Windows (remoção um por um), vários PCs (inventário), monitor de conexão, espaço em disco (com arquivos repetidos e programas por tamanho), temperaturas ao vivo, manutenção automática, suporte técnico (resumo para chamado, senhas Wi-Fi, ajuda remota), desinstalar Office, proteção/antivírus, DNS com teste de velocidade, programas de inicialização (liga/desliga), teste de servidor TCP, drivers USB-serial e portas COM, reparo do Windows (DISM/SFC com progresso), instalação de programas (winget), relatório do PC em HTML e atalhos do Windows.
 - **Segurança:** ponto de restauração antes da primeira alteração, valores originais guardados por ajuste, desfazer individual ou total, histórico de execuções e log diário.
@@ -55,6 +56,8 @@ src/
   analise.ps1                  diagnóstico: lentidão, boot, estabilidade, conexão, BIOS, antes × depois
   programas.ps1                apps do Windows, programas por tamanho, modo jogo
   inventario.ps1               inventário de vários PCs (Inventario-PC.bat)
+  segundoplano.ps1             Limpar o segundo plano (base em conhecidos.ps1)
+  desinstalar.ps1              desinstalar por completo + sobras
   catalogo/*.ps1               os ajustes (um arquivo por categoria)
   ui/Janela.xaml, Modelos.cs   layout e modelos de tela
   Otimizador-Vinicius.ps1      v1.1 (modo texto)

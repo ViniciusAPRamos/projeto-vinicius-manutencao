@@ -138,6 +138,7 @@ try {
     . (Join-Path $Script:SrcDir 'programas.ps1')
     . (Join-Path $Script:SrcDir 'inventario.ps1')
     . (Join-Path $Script:SrcDir 'segundoplano.ps1')
+    . (Join-Path $Script:SrcDir 'desinstalar.ps1')
     . (Join-Path $Script:SrcDir 'glossario.ps1')
     $sidAlvo = if ($ehAdmin) { Get-SidUsuarioSessao } else { $null }
     Initialize-Otz -SrcDir $Script:SrcDir -SidAlvo $sidAlvo
@@ -373,6 +374,7 @@ function Start-Tarefa {
 . (Join-Path `$SrcDir 'inventario.ps1')
 . (Join-Path `$SrcDir 'manutencao.ps1')
 . (Join-Path `$SrcDir 'segundoplano.ps1')
+. (Join-Path `$SrcDir 'desinstalar.ps1')
 Initialize-Otz -SrcDir `$SrcDir -Fila `$Fila -SidAlvo `$SidAlvo
 $Script
 "@
@@ -1082,7 +1084,7 @@ $Script:FerPaineis = [ordered]@{
     RbFerRede = 'FerRede'; RbFerInicio = 'FerInicio'; RbFerServidor = 'FerServidor'; RbFerSerial = 'FerSerial'
     RbFerReparo = 'FerReparo'; RbFerProgramas = 'FerProgramas'; RbFerRelatorio = 'FerRelatorio'
     RbFerSuporte = 'FerSuporte'; RbFerTemp = 'FerTemp'; RbFerMonitor = 'FerMonitor'; RbFerManut = 'FerManut'; RbFerEspaco = 'FerEspaco'; RbFerProtecao = 'FerProtecao'; RbFerOffice = 'FerOffice'; RbFerAtalhos = 'FerAtalhos'
-    RbFerJogo = 'FerJogo'; RbFerApps = 'FerApps'; RbFerFrota = 'FerFrota'
+    RbFerJogo = 'FerJogo'; RbFerApps = 'FerApps'; RbFerFrota = 'FerFrota'; RbFerDesinstalar = 'FerDesinstalar'
 }
 
 function Show-Ferramenta([string]$Rb) {
@@ -1102,6 +1104,7 @@ function Show-Ferramenta([string]$Rb) {
             'FerEspaco'    { Update-Espaco; Update-ProgTam }
             'FerJogo'      { Update-Jogo }
             'FerApps'      { Update-Apps }
+            'FerDesinstalar' { Update-Desinstalar }
             'FerFrota'     { if ($S.PastaFrota) { $UI.TxtFrotaPasta.Text = $S.PastaFrota; Update-Frota } }
             'FerManut'     { Initialize-Manut }
             'FerSuporte'   { Initialize-Suporte }
@@ -3089,6 +3092,167 @@ $UI.ListaApps.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [
     }
 })
 
+# ---------------- Desinstalar programas por completo ----------------
+function Get-AvisoDesinstalar($P) {
+    if ($P.Tipo -eq 'app') {
+        if ($P.Pacote -match '^Microsoft\.(WindowsCalculator|WindowsNotepad|Windows\.Photos|WindowsTerminal|Paint|ScreenSketch|WindowsCamera|GamingServices|XboxIdentityProvider|MicrosoftEdge)') { return 'Faz parte do Windows. Dá para reinstalar pela Microsoft Store.' }
+        if ($P.Pacote -match 'Gaming|Xbox') { return 'Jogos do Game Pass e da Store podem depender disto.' }
+        return ''
+    }
+    if ($P.Nome -match 'Visual C\+\+|\.NET|DirectX|Runtime|Redistributable|WebView2') { return 'Outros programas e jogos dependem disto: desinstale só se souber que nada usa.' }
+    if ($P.Nome -match '(?i)driver|chipset|controller|audio|áudio|bluetooth|wireless|wi-fi') { return 'Parece um driver: sem ele, algum dispositivo pode parar de funcionar.' }
+    if ($P.Nome -match 'Microsoft Edge') { return 'Navegador do Windows: alguns recursos do sistema dependem dele.' }
+    return ''
+}
+
+function Update-Desinstalar {
+    if (Test-TarefaAtiva 'des-lista') { return }
+    $UI.TxtDesSelecao.Text = 'Lendo os programas instalados...'
+    Start-Tarefa -Nome 'des-lista' -Script 'Get-ProgramasInstalados' -AoTerminar {
+        param($saida, $erro)
+        $S.DesTodos = @($saida | Where-Object { $_ -and $_.Id })
+        $S.DesLinhas = @{}
+        foreach ($p in $S.DesTodos) {
+            $partes = New-Object System.Collections.Generic.List[string]
+            $partes.Add($(if ($p.Tipo -eq 'app') { 'App da Store' } else { 'Programa' }))
+            if ($p.Editor) { $partes.Add($p.Editor) }
+            if ($p.Versao) { $partes.Add("versão $($p.Versao)") }
+            if ($p.Data) { $partes.Add("instalado em $($p.Data.ToString('dd/MM/yyyy'))") }
+            $tam = if ($p.Bytes -gt 0) { Format-Tamanho $p.Bytes } else { '' }
+            $l = New-Linha -Titulo $p.Nome -Texto ($partes -join '  ·  ') -Extra (Get-AvisoDesinstalar $p) -Tag $p.Id -Icone $tam
+            $l.add_PropertyChanged({ param($o, $e) if ($e.PropertyName -eq 'Marcado') { Update-SelecaoDes } })
+            $S.DesLinhas[$p.Id] = $l
+        }
+        Show-ListaDes
+        Update-SelecaoDes
+    }
+}
+
+function Show-ListaDes {
+    if (-not $S.DesTodos) { return }
+    $busca = Remove-Acentos $UI.TxtDesBusca.Text.Trim()
+    $tipo = if ($UI.RbDesProgramas.IsChecked) { 'programa' } elseif ($UI.RbDesApps.IsChecked) { 'app' } else { '' }
+    $lista = New-Object System.Collections.Generic.List[Otz.Linha]
+    foreach ($p in @($S.DesTodos | Sort-Object @{ Expression = { $_.Bytes }; Descending = $true }, Nome)) {
+        if ($tipo -and $p.Tipo -ne $tipo) { continue }
+        if ($busca -and (Remove-Acentos "$($p.Nome) $($p.Editor)") -notlike "*$busca*") { continue }
+        $lista.Add($S.DesLinhas[$p.Id])
+    }
+    $UI.ListaDes.ItemsSource = $lista.ToArray()
+}
+
+function Get-DesMarcados { return @($S.DesTodos | Where-Object { $S.DesLinhas[$_.Id].Marcado }) }
+
+function Update-SelecaoDes {
+    $m = @(Get-DesMarcados)
+    $t = 0.0; foreach ($p in $m) { $t += $p.Bytes }
+    $UI.TxtDesSelecao.Text = if ($m.Count) { "$($m.Count) marcado(s)" + $(if ($t -gt 0) { "  ·  ~$(Format-Tamanho $t)" } else { '' }) } else { "$(@($S.DesTodos).Count) programas e apps. Marque o que quer remover." }
+    $UI.BtnDesinstalar.IsEnabled = $m.Count -gt 0 -and -not (Test-TarefaAtiva 'desinstalar')
+}
+
+$UI.TxtDesBusca.Add_TextChanged({ Show-ListaDes })
+foreach ($rb in 'RbDesTodos', 'RbDesProgramas', 'RbDesApps') { $UI[$rb].Add_Checked({ Show-ListaDes }) }
+$UI.BtnDesAtualizar.Add_Click({ Update-Desinstalar })
+
+$UI.BtnDesinstalar.Add_Click({
+    $m = @(Get-DesMarcados)
+    if (-not $m.Count) { return }
+    $linhas = @($m | ForEach-Object {
+        $aviso = Get-AvisoDesinstalar $_
+        New-Linha -Titulo $_.Nome -Texto $aviso -Nivel $(if ($aviso) { 'medio' } else { 'info' })
+    })
+    $silencioso = [bool]$UI.ChkDesSilencioso.IsChecked
+    $texto = 'Cada um é removido pelo desinstalador oficial' + $(if ($silencioso) { ' (sem janelas quando o programa permite; os outros abrem a janela deles: siga as instruções)' } else { ' (cada um abre a própria janela: siga as instruções)' }) +
+             '. Depois o otimizador procura o que ficou para trás e mostra para você conferir antes de apagar.'
+    Show-Dialogo -Titulo "Desinstalar $($m.Count) programa(s)?" -Texto $texto -Linhas $linhas -TextoOk 'Desinstalar' -Tipo 'perigo' -Dados $m -Acao {
+        param($progs)
+        Start-Desinstalacao $progs
+    }
+})
+
+function Start-Desinstalacao($Progs) {
+    $UI.BtnDesinstalar.IsEnabled = $false
+    $UI.CardSobras.Visibility = 'Collapsed'
+    $S.DesMsg = @{}
+    $S.DesRes = New-Object 'System.Collections.ObjectModel.ObservableCollection[Otz.Linha]'
+    $UI.ListaDesRes.ItemsSource = $S.DesRes
+    $UI.RolagemDes.ScrollToTop()
+    $script = @'
+$sobras = New-Object System.Collections.Generic.List[object]
+foreach ($p in $Parametros.Progs) {
+    Send-Evento @{ Tipo = 'des'; Nome = $p.Nome; Status = 'executando'; Mensagem = '' }
+    $r = Invoke-DesinstalarPrograma $p $Parametros.Silencioso $Parametros.Todos
+    Send-Evento @{ Tipo = 'des'; Nome = $p.Nome; Status = $r.Status; Mensagem = $r.Mensagem }
+    if ($r.Status -eq 'ok' -or $r.Orfao) {
+        Send-Evento @{ Tipo = 'des'; Nome = $p.Nome; Status = 'sobras'; Mensagem = '' }
+        foreach ($s in @(Find-SobrasPrograma $p)) { $sobras.Add($s) }
+    }
+}
+$sobras.ToArray()
+'@
+    Start-Tarefa -Nome 'desinstalar' -Script $script -Parametros @{ Progs = @($Progs); Silencioso = [bool]$UI.ChkDesSilencioso.IsChecked; Todos = [bool]$UI.ChkDesTodosUsuarios.IsChecked } -AoEvento {
+        param($ev)
+        if ($ev.Tipo -ne 'des') { return }
+        $nivel = switch ($ev.Status) { 'ok' { 'ok' } 'erro' { 'erro' } 'aviso' { 'medio' } default { 'info' } }
+        $txt = switch ($ev.Status) {
+            'executando' { 'Desinstalando... se abrir a janela do desinstalador, siga as instruções dela.' }
+            'sobras'     { 'Desinstalado. Procurando o que ficou para trás...' }
+            default      { [string]$ev.Mensagem }
+        }
+        if ($ev.Status -eq 'ok') { $S.DesMsg[$ev.Nome] = [string]$ev.Mensagem }
+        $nova = New-Linha -Titulo $ev.Nome -Texto $txt -Nivel $nivel
+        for ($i = 0; $i -lt $S.DesRes.Count; $i++) { if ($S.DesRes[$i].Titulo -eq $ev.Nome) { $S.DesRes[$i] = $nova; return } }
+        $S.DesRes.Add($nova)
+    } -AoTerminar {
+        param($saida, $erro)
+        if ($erro) { Show-Toast "Falhou: $erro" 'erro' }
+        $sob = @($saida | Where-Object { $_ -and $_.Alvo })
+        # A linha "Procurando o que ficou" volta a mostrar o resultado da desinstalação
+        for ($i = 0; $i -lt $S.DesRes.Count; $i++) { if ($S.DesRes[$i].Texto -like 'Desinstalado. Procurando*') { $S.DesRes[$i] = New-Linha -Titulo $S.DesRes[$i].Titulo -Texto ([string]$S.DesMsg[$S.DesRes[$i].Titulo]) -Nivel 'ok' } }
+        if ($sob.Count) { Show-Sobras $sob } else { Show-Toast 'Desinstalação concluída. Nenhuma sobra encontrada.' 'ok' }
+        Update-Desinstalar
+    }
+}
+
+function Show-Sobras($Sobras) {
+    $S.Sobras = @($Sobras)
+    $col = New-Object System.Collections.Generic.List[Otz.Linha]
+    $total = 0.0
+    $progs = @($S.Sobras | ForEach-Object Programa | Select-Object -Unique).Count
+    for ($n = 0; $n -lt $S.Sobras.Count; $n++) {
+        $sobra = $S.Sobras[$n]   # nunca $s: é o mesmo que $S (o PowerShell não diferencia maiúsculas)
+        $total += $sobra.Bytes
+        $alvo = if ($sobra.Tipo -eq 'inicio') { ($sobra.Alvo -split '\|', 3)[2] } else { $sobra.Alvo }
+        $l = New-Linha -Titulo "$($sobra.Programa): $($sobra.Texto)" -Texto $alvo -Icone $(if ($sobra.Bytes -gt 0) { Format-Tamanho $sobra.Bytes } else { '' }) `
+            -Extra $(if (-not $sobra.Certeza) { 'Confira antes: pode não ser só deste programa.' } else { '' })
+        $l.Marcado = [bool]$sobra.Certeza
+        $l.Valor = [double]$n
+        $col.Add($l)
+    }
+    $S.SobrasLinhas = $col.ToArray()
+    $UI.ListaSobras.ItemsSource = $S.SobrasLinhas
+    $UI.TxtSobras.Text = "$($S.Sobras.Count) item(ns) de $progs programa(s)" + $(if ($total -gt 0) { ", ~$(Format-Tamanho $total)" } else { '' }) + '. Já vêm marcados os que com certeza eram do programa. Pastas vão para a Lixeira; chaves de registro ganham backup antes.'
+    $UI.CardSobras.Visibility = 'Visible'
+    $UI.RolagemDes.ScrollToTop()
+}
+
+$UI.BtnSobrasIgnorar.Add_Click({ $UI.CardSobras.Visibility = 'Collapsed' })
+$UI.BtnSobrasApagar.Add_Click({
+    $marc = @($S.SobrasLinhas | Where-Object Marcado | ForEach-Object { $S.Sobras[[int]$_.Valor] })
+    if (-not $marc.Count) { Show-Toast 'Marque o que quer apagar.' 'info'; return }
+    Show-Dialogo -Titulo "Apagar $($marc.Count) sobra(s)?" -Texto 'Pastas e atalhos vão para a Lixeira (dá para recuperar). Chaves de registro são salvas em Documentos\OtimizadorVinicius\Backups antes de apagar.' -TextoOk 'Apagar' -Tipo 'perigo' -Dados $marc -Acao {
+        param($sel)
+        $UI.CardSobras.Visibility = 'Collapsed'
+        Start-Tarefa -Nome 'sobras' -Script 'Remove-Sobras $Parametros.Sobras' -Parametros @{ Sobras = @($sel) } -AoTerminar {
+            param($saida, $erro)
+            $res = @($saida | Where-Object { $_ -and $_.Titulo })
+            foreach ($r in $res) { $S.DesRes.Add((New-Linha -Titulo $r.Titulo -Texto $r.Texto -Nivel $r.Nivel)) }
+            $erros = @($res | Where-Object Nivel -eq 'erro').Count
+            Show-Toast $(if ($erros) { "$($res.Count - $erros) apagado(s), $erros com erro (veja a lista)." } else { "$($res.Count) sobra(s) apagada(s)." }) $(if ($erros) { 'aviso' } else { 'ok' })
+        }
+    }
+})
+
 # ---------------- Espaço: arquivos repetidos e programas por tamanho ----------------
 function Show-ListaDup {
     $grupos = @($S.Dup)
@@ -3155,10 +3319,11 @@ $UI.ListaProgTam.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent
     param($origem, $e)
     $p = @($S.ProgTam)[[int][string]$e.OriginalSource.Tag]
     if (-not $p) { return }
-    Show-Dialogo -Titulo "Desinstalar $($p.Nome)?" -Texto 'Vai abrir o desinstalador do próprio programa: siga as instruções dele. Nada é removido sem a sua confirmação lá.' -TextoOk 'Abrir desinstalador' -Dados $p.Desinstalar -Acao {
-        param($cmd)
-        try { Start-DesinstaladorPrograma $cmd; Show-Toast 'Desinstalador aberto. Ao terminar, clique em "Analisar de novo".' 'info' } catch { Show-Toast "Não foi possível abrir: $($_.Exception.Message)" 'erro' }
-    }
+    # Vai para o desinstalador completo (remove e procura sobras), já filtrado no programa
+    Show-Ferramenta 'RbFerDesinstalar'
+    $UI.RbDesTodos.IsChecked = $true
+    $UI.TxtDesBusca.Text = Get-NomeBase $p.Nome
+    Show-Toast "Marque '$($p.Nome)' e clique em Desinstalar." 'info'
 })
 
 # ---------------- Vários PCs (inventário) ----------------
@@ -3475,6 +3640,13 @@ if ($Captura) {
         { Show-Ferramenta 'RbFerApps' }
         { }
         { Save-Captura '40-apps' }
+        { Show-Ferramenta 'RbFerDesinstalar' }
+        { }
+        { $UI.TxtDesBusca.Text = 'radmin'; $S.DesLinhas[@($S.DesTodos | Where-Object { $_.Nome -like 'Radmin*' })[0].Id].Marcado = $true }
+        { Save-Captura '40b-desinstalar' }
+        { $UI.TxtDesBusca.Text = ''; $p = @($S.DesTodos | Where-Object { $_.Nome -like 'Radmin*' })[0]; $S.DesLinhas[$p.Id].Marcado = $false; Show-Sobras @(Find-SobrasPrograma $p) }
+        { Save-Captura '40c-sobras' }
+        { $UI.CardSobras.Visibility = 'Collapsed' }
         { $S.PastaFrota = Join-Path $Captura 'frota'; $UI.TxtFrotaPasta.Text = $S.PastaFrota; Show-Ferramenta 'RbFerFrota'; $UI.BtnFrotaSalvar.RaiseEvent((New-Object Windows.RoutedEventArgs ([Windows.Controls.Primitives.ButtonBase]::ClickEvent))) }
         { }
         { }

@@ -1,9 +1,24 @@
 # Lista personalizada de programas (opcional)
-# Formato: Id do winget;Nome
-# Para achar o Id: winget search nome-do-programa
-Google.Chrome;Google Chrome
-7zip.7zip;7-Zip
-Notepad++.Notepad++;Notepad++
-AnyDesk.AnyDesk;AnyDesk
-PuTTY.PuTTY;PuTTY
-WiresharkFoundation.Wireshark;Wireshark
+# Copie este arquivo para  src\winget-lista.txt  e edite.
+#
+# Formato por linha:  Id;Nome;Grupo
+#   - Id    = identificador do winget (ache com:  winget search nome )
+#   - Nome  = o que aparece na tela (opcional; se vazio, usa o Id)
+#   - Grupo = categoria para agrupar na tela (opcional; padrão "Minha lista")
+#
+# Linhas começando com # são ignoradas.
+
+Google.Chrome;Google Chrome;Navegadores
+Mozilla.Firefox;Firefox;Navegadores
+7zip.7zip;7-Zip;Utilitários
+RARLab.WinRAR;WinRAR;Utilitários
+Flameshot.Flameshot;Flameshot (captura de tela);Utilitários
+Notepad++.Notepad++;Notepad++;Utilitários
+AnyDesk.AnyDesk;AnyDesk;Acesso remoto
+Famatech.RadminVPN;Radmin VPN;Acesso remoto
+PuTTY.PuTTY;PuTTY;Acesso remoto
+WiresharkFoundation.Wireshark;Wireshark;Acesso remoto
+Discord.Discord;Discord;Comunicação
+Valve.Steam;Steam;Jogos
+ArtCraft.PdfCraft;PdfCraft (editor de PDF);ArtCraft
+ArtCraft.VectorCraft;VectorCraft (vetores);ArtCraft

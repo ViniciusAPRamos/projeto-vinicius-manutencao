@@ -20,6 +20,7 @@
 | `src/Otimizador-Vinicius-GUI.ps1` | Janela: navegação, eventos, tarefas em segundo plano. Parâmetros de desenvolvimento: `-SemElevar` e `-Captura <pasta>` (salva PNG de cada tela e fecha). |
 | `src/nucleo.ps1` | Motor: registro via .NET (HKCU/HKLM/HKU, valor padrão, tipos exatos), powercfg, originais, catálogo, `Invoke-Plano`, ponto de restauração, histórico, log. |
 | `src/diagnostico.ps1` | Placa de vídeo (`Get-InfoGpu`, dicas do painel por fabricante/modo, placa por programa), bateria, memória e as checagens da página Verificar (`Get-Saude*`, evento `checagem`). |
+| `src/seguranca.ps1` | Office (detectar + desinstalar pela string oficial) e Proteção/antivírus (estado real do Defender, pausar/reativar quando o Tamper Protection permite, exclusão de pasta, atalhos para a Segurança do Windows). |
 | `src/ui/Tela.cs` | Win32 `EnumDisplaySettings`/`ChangeDisplaySettingsEx`: Hz atual e máximo de cada monitor. |
 | `src/ferramentas.ps1` | `Get-InfoPC`, relatório HTML, inicialização, drivers serial, DNS, teste TCP, `Invoke-ProcessoAoVivo` (SFC/DISM/winget), lista winget. |
 | `src/catalogo/NN-*.ps1` | Um arquivo por categoria; cada item é um hashtable (ver `docs/catalogo.md`). 67 itens. Tipos de mudança suportados pelo motor: `Registro`, `Energia` (com `Corrente = 'dc'` para bateria), `Servicos` (sc config), `DirectX` (string global de jogos) ou código próprio. |
@@ -253,7 +254,9 @@ Evitar Electron (pesado demais para um otimizador).
 
 **Serviços:** entraram só 9, conservadores, um por um, com consumo medido e desfazer (pedido do Vinícius para PCs de 8/16 GB). Continua fora: desativar serviços em massa.
 
-**Deixados de fora de propósito** (risco alto ou ganho duvidoso): desativar Defender, `bcdedit`/timer resolution, remover apps nativos (debloat agressivo).
+**Antivírus:** o app NÃO desliga o Defender à força. Mostra o estado real e, com Tamper Protection ligada (padrão), leva à tela do Windows; pausa por script só quando o Windows deixa; prefere exclusão de pasta. Não mexe em antivírus de terceiros (sem API única). **Ativadores de Windows/Office (irm get.activated.win | iex) ficam DE FORA:** script remoto, pirataria e contra o propósito do app.
+
+**Deixados de fora de propósito** (risco alto ou ganho duvidoso): ~~desativar Defender~~ (ver acima), `bcdedit`/timer resolution, remover apps nativos (debloat agressivo).
 
 ---
 
@@ -308,3 +311,4 @@ Todas causaram bugs reais. Conferir sempre que escrever código novo.
 | `[T[]]@($lista)` com `List[object]` | `Os tipos de argumento não correspondem` (quase quebrou o diálogo de Aplicar) | Converter com laço + `List[T].ToArray()` (`ConvertTo-Linhas`). |
 | Apelido de `powercfg` que não existe | `LIDACTION`, `ESBATTTHRESHOLD`, `SUB_ENERGYSAVER` e `PERFBOOSTMODE` NÃO existem neste Windows | Conferir com `powercfg /aliases`; usar o GUID. |
 | `.bat` com BOM | O `cmd` quebra na 1ª linha | `.bat` em ASCII + CRLF. |
+| `\\` como variável | É automática do PowerShell; atribuir quebra | Usar outro nome (`\\`). |

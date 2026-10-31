@@ -2,6 +2,11 @@
 
 ## [2.0] — em teste
 
+### Novo (3ª rodada)
+- **Programas (winget):** lista agrupada por categoria e novos programas (Flameshot, WinRAR, Radmin VPN e a suíte ArtCraft: PdfCraft, VectorCraft, CadCraft, EffectCraft, FilmCraft, GridCraft, SoundCraft). IDs conferidos com `winget search`; RustDesk removido (saiu do winget). A lista pessoal agora aceita `Id;Nome;Grupo`.
+- **Desinstalar Office:** detecta Word/Excel/Outlook/Microsoft 365 (Click-to-Run, MSI e Store) e remove tudo usando a string de desinstalação oficial do próprio Office, com log ao vivo. Pede confirmação; não apaga seus arquivos.
+- **Proteção (antivírus):** mostra o antivírus ativo e o estado real (tempo real e Proteção contra Adulteração). Pausa a proteção do Defender quando o Windows permite (com reativação automática por tempo e botão "Reativar agora"); quando o Windows bloqueia (Tamper Protection) ou o antivírus é de terceiros, leva à tela certa com o passo a passo. Opção mais segura: liberar só uma pasta (exclusão) em vez de desligar tudo.
+
 ### Novo (2ª rodada)
 - **Verificar o PC:** varredura em 6 etapas ao vivo, nota de 0 a 100, barras por categoria, "o que falta" para o perfil sugerido e saúde do sistema (antivírus, firewall, atualizações, reinício pendente, discos, RAM/XMP, driver de vídeo, Hz dos monitores, inicialização, temporários), com botão para resolver cada ponto.
 - **Placa de vídeo:** nome, VRAM, driver (versão no formato do fabricante) e monitores. Modos Desempenho máximo, Balanceado e Qualidade: marcam os ajustes do Windows e mostram o que conferir no painel NVIDIA/AMD/Intel. Abrir painel, baixar driver e placa por programa.

@@ -509,43 +509,66 @@ function Invoke-ProcessoAoVivo {
 # ===============================================================
 #  Winget
 # ===============================================================
+# IDs conferidos com "winget search" em 2026. Formato: Id = @{ Nome; Grupo }
+# (RustDesk saiu do winget da comunidade; removido para não dar erro.)
 $Script:ListaWingetPadrao = [ordered]@{
-    'Google.Chrome'                   = 'Google Chrome'
-    'Mozilla.Firefox'                 = 'Firefox'
-    '7zip.7zip'                       = '7-Zip'
-    'Notepad++.Notepad++'             = 'Notepad++'
-    'Microsoft.VisualStudioCode'      = 'VS Code'
-    'Microsoft.PowerToys'             = 'PowerToys'
-    'Microsoft.WindowsTerminal'       = 'Windows Terminal'
-    'voidtools.Everything'            = 'Everything (busca instantânea)'
-    'AnyDesk.AnyDesk'                 = 'AnyDesk'
-    'RustDesk.RustDesk'               = 'RustDesk'
-    'PuTTY.PuTTY'                     = 'PuTTY'
-    'WinSCP.WinSCP'                   = 'WinSCP'
-    'WiresharkFoundation.Wireshark'   = 'Wireshark'
-    'Famatech.AdvancedIPScanner'      = 'Advanced IP Scanner'
-    'Git.Git'                         = 'Git'
-    'Python.Python.3.12'              = 'Python 3.12'
-    'CPUID.CPU-Z'                     = 'CPU-Z'
-    'CPUID.HWMonitor'                 = 'HWMonitor'
-    'TechPowerUp.GPU-Z'               = 'GPU-Z'
-    'CrystalDewWorld.CrystalDiskInfo' = 'CrystalDiskInfo'
-    'VideoLAN.VLC'                    = 'VLC'
-    'Telegram.TelegramDesktop'        = 'Telegram'
-    'Discord.Discord'                 = 'Discord'
-    'Valve.Steam'                     = 'Steam'
-    'Spotify.Spotify'                 = 'Spotify'
+    'Google.Chrome'                   = @{ Nome = 'Google Chrome';                 Grupo = 'Navegadores e internet' }
+    'Mozilla.Firefox'                 = @{ Nome = 'Firefox';                       Grupo = 'Navegadores e internet' }
+    'Telegram.TelegramDesktop'        = @{ Nome = 'Telegram';                      Grupo = 'Navegadores e internet' }
+    'Discord.Discord'                 = @{ Nome = 'Discord';                       Grupo = 'Navegadores e internet' }
+    '7zip.7zip'                       = @{ Nome = '7-Zip';                         Grupo = 'Utilitários' }
+    'RARLab.WinRAR'                   = @{ Nome = 'WinRAR';                         Grupo = 'Utilitários' }
+    'Notepad++.Notepad++'             = @{ Nome = 'Notepad++';                      Grupo = 'Utilitários' }
+    'voidtools.Everything'            = @{ Nome = 'Everything (busca instantânea)'; Grupo = 'Utilitários' }
+    'Flameshot.Flameshot'             = @{ Nome = 'Flameshot (captura de tela)';   Grupo = 'Utilitários' }
+    'VideoLAN.VLC'                    = @{ Nome = 'VLC';                           Grupo = 'Utilitários' }
+    'Spotify.Spotify'                 = @{ Nome = 'Spotify';                        Grupo = 'Utilitários' }
+    'AnyDesk.AnyDesk'                 = @{ Nome = 'AnyDesk';                        Grupo = 'Acesso remoto e rede' }
+    'Famatech.RadminVPN'              = @{ Nome = 'Radmin VPN';                     Grupo = 'Acesso remoto e rede' }
+    'Famatech.AdvancedIPScanner'      = @{ Nome = 'Advanced IP Scanner';           Grupo = 'Acesso remoto e rede' }
+    'PuTTY.PuTTY'                     = @{ Nome = 'PuTTY';                          Grupo = 'Acesso remoto e rede' }
+    'WinSCP.WinSCP'                   = @{ Nome = 'WinSCP';                         Grupo = 'Acesso remoto e rede' }
+    'WiresharkFoundation.Wireshark'   = @{ Nome = 'Wireshark';                      Grupo = 'Acesso remoto e rede' }
+    'Valve.Steam'                     = @{ Nome = 'Steam';                          Grupo = 'Jogos' }
+    'ArtCraft.PdfCraft'               = @{ Nome = 'PdfCraft (editor de PDF)';       Grupo = 'ArtCraft (criação)' }
+    'ArtCraft.VectorCraft'            = @{ Nome = 'VectorCraft (vetores)';          Grupo = 'ArtCraft (criação)' }
+    'ArtCraft.CadCraft'               = @{ Nome = 'CadCraft (desenho técnico)';     Grupo = 'ArtCraft (criação)' }
+    'ArtCraft.EffectCraft'            = @{ Nome = 'EffectCraft (efeitos)';          Grupo = 'ArtCraft (criação)' }
+    'ArtCraft.FilmCraft'              = @{ Nome = 'FilmCraft (vídeo)';              Grupo = 'ArtCraft (criação)' }
+    'ArtCraft.GridCraft'              = @{ Nome = 'GridCraft (planilhas/grid)';     Grupo = 'ArtCraft (criação)' }
+    'ArtCraft.SoundCraft'             = @{ Nome = 'SoundCraft (áudio)';             Grupo = 'ArtCraft (criação)' }
+    'Git.Git'                         = @{ Nome = 'Git';                            Grupo = 'Desenvolvimento' }
+    'Microsoft.VisualStudioCode'      = @{ Nome = 'VS Code';                        Grupo = 'Desenvolvimento' }
+    'Microsoft.PowerToys'             = @{ Nome = 'PowerToys';                      Grupo = 'Desenvolvimento' }
+    'Microsoft.WindowsTerminal'       = @{ Nome = 'Windows Terminal';               Grupo = 'Desenvolvimento' }
+    'Python.Python.3.12'              = @{ Nome = 'Python 3.12';                     Grupo = 'Desenvolvimento' }
+    'CPUID.CPU-Z'                     = @{ Nome = 'CPU-Z';                           Grupo = 'Diagnóstico' }
+    'CPUID.HWMonitor'                 = @{ Nome = 'HWMonitor (temperaturas)';        Grupo = 'Diagnóstico' }
+    'TechPowerUp.GPU-Z'               = @{ Nome = 'GPU-Z';                           Grupo = 'Diagnóstico' }
+    'CrystalDewWorld.CrystalDiskInfo' = @{ Nome = 'CrystalDiskInfo (saúde do disco)'; Grupo = 'Diagnóstico' }
 }
 
+# Devolve lista de objetos { Id; Nome; Grupo }, mantendo a ordem.
+# A lista pessoal (winget-lista.txt) aceita "Id;Nome" ou "Id;Nome;Grupo".
 function Get-ListaWinget {
     $arq = Join-Path $Script:Otz.SrcDir 'winget-lista.txt'
-    if (-not (Test-Path $arq)) { return $Script:ListaWingetPadrao }
-    $lista = [ordered]@{}
-    foreach ($l in [IO.File]::ReadAllLines($arq, [Text.Encoding]::UTF8)) {
-        $l = $l.Trim()
-        if (-not $l -or $l.StartsWith('#')) { continue }
-        $p = $l -split ';', 2
-        $lista[$p[0].Trim()] = if ($p.Count -gt 1) { $p[1].Trim() } else { $p[0].Trim() }
+    if (Test-Path $arq) {
+        $itens = New-Object System.Collections.Generic.List[object]
+        foreach ($l in [IO.File]::ReadAllLines($arq, [Text.Encoding]::UTF8)) {
+            $l = $l.Trim()
+            if (-not $l -or $l.StartsWith('#')) { continue }
+            $p = $l -split ';'
+            $id = $p[0].Trim()
+            $nome = if ($p.Count -gt 1 -and $p[1].Trim()) { $p[1].Trim() } else { $id }
+            $grupo = if ($p.Count -gt 2 -and $p[2].Trim()) { $p[2].Trim() } else { 'Minha lista' }
+            $itens.Add([pscustomobject]@{ Id = $id; Nome = $nome; Grupo = $grupo })
+        }
+        return $itens.ToArray()
     }
-    return $lista
+    $itens = New-Object System.Collections.Generic.List[object]
+    foreach ($id in $Script:ListaWingetPadrao.Keys) {
+        $v = $Script:ListaWingetPadrao[$id]
+        $itens.Add([pscustomobject]@{ Id = $id; Nome = $v.Nome; Grupo = $v.Grupo })
+    }
+    return $itens.ToArray()
 }

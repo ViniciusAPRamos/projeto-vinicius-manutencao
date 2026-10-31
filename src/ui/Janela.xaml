@@ -1266,6 +1266,8 @@
                             <RadioButton x:Name="RbFerReparo" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE90F;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Reparar Windows"/></StackPanel></RadioButton>
                             <RadioButton x:Name="RbFerProgramas" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE896;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Programas"/></StackPanel></RadioButton>
                             <RadioButton x:Name="RbFerRelatorio" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE9D9;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Relatório do PC"/></StackPanel></RadioButton>
+                            <RadioButton x:Name="RbFerProtecao" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72E;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Proteção (antivírus)"/></StackPanel></RadioButton>
+                            <RadioButton x:Name="RbFerOffice" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8A5;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Desinstalar Office"/></StackPanel></RadioButton>
                             <RadioButton x:Name="RbFerAtalhos" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8A7;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Atalhos do Windows"/></StackPanel></RadioButton>
                         </WrapPanel>
 
@@ -1594,10 +1596,20 @@
                                         </StackPanel>
                                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                                             <ItemsControl x:Name="ListaWinget">
-                                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                <ItemsControl.GroupStyle>
+                                                    <GroupStyle>
+                                                        <GroupStyle.HeaderTemplate>
+                                                            <DataTemplate>
+                                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource TextoSec}" Margin="2,14,0,8"/>
+                                                            </DataTemplate>
+                                                        </GroupStyle.HeaderTemplate>
+                                                        <GroupStyle.Panel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></GroupStyle.Panel>
+                                                    </GroupStyle>
+                                                </ItemsControl.GroupStyle>
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
-                                                        <Border Width="230" Background="{DynamicResource Superficie2}" CornerRadius="10" Padding="12,9" Margin="0,0,8,8" ToolTip="{Binding Tag}">
+                                                        <Border Width="232" Background="{DynamicResource Superficie2}" CornerRadius="10" Padding="12,9" Margin="0,0,8,8" ToolTip="{Binding Tag}">
                                                             <CheckBox Style="{StaticResource Caixa}" IsChecked="{Binding Marcado, Mode=TwoWay}">
                                                                 <TextBlock Text="{Binding Titulo}" TextTrimming="CharacterEllipsis"/>
                                                             </CheckBox>
@@ -1655,6 +1667,159 @@
                                         </StackPanel>
                                     </Grid>
                                 </Border>
+                            </ScrollViewer>
+
+                            <!-- Proteção (antivírus) -->
+                            <ScrollViewer x:Name="FerProtecao" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <Border x:Name="CardProtEstado" Style="{StaticResource Card}" Margin="0,0,0,14" Padding="22,18">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <Border x:Name="CirculoProt" Width="56" Height="56" CornerRadius="16" Background="{DynamicResource OkSuave}">
+                                                <TextBlock x:Name="IcoProt" Text="&#xE72E;" Style="{StaticResource Icone}" FontSize="26" Foreground="{DynamicResource Ok}" HorizontalAlignment="Center"/>
+                                            </Border>
+                                            <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                                                <TextBlock x:Name="TxtProtTitulo" Text="Verificando a proteção..." FontFamily="{DynamicResource FonteTitulo}" FontSize="20" FontWeight="SemiBold"/>
+                                                <TextBlock x:Name="TxtProtDetalhe" Foreground="{DynamicResource TextoSec}" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <Button x:Name="BtnProtAtualizar" Grid.Column="2" Style="{StaticResource BtnFantasma}" Padding="10,6" VerticalAlignment="Top">
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource IconeBtn}" FontSize="12"/><TextBlock Text="Atualizar"/></StackPanel>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+
+                                    <Border x:Name="BannerProtPausada" Background="{DynamicResource AvisoSuave}" CornerRadius="12" Padding="16,12" Margin="0,0,0,14" Visibility="Collapsed">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <TextBlock Text="&#xE7BA;" Style="{StaticResource Icone}" FontSize="20" Foreground="{DynamicResource Aviso}" Margin="0,0,12,0"/>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="A proteção em tempo real está PAUSADA" FontWeight="SemiBold" Foreground="{DynamicResource Aviso}"/>
+                                                <TextBlock x:Name="TxtProtPausadaSub" Foreground="{DynamicResource Aviso}" FontSize="12.5" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <Button x:Name="BtnProtReativarTopo" Grid.Column="2" Style="{StaticResource BtnPrimario}" VerticalAlignment="Center">
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE73E;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Reativar agora"/></StackPanel>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <Border Style="{StaticResource Card}">
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                                    <TextBlock Text="&#xE916;" Style="{StaticResource Icone}" FontSize="16" Foreground="{DynamicResource Acento}" Margin="0,0,10,0"/>
+                                                    <TextBlock Text="Pausar a proteção" FontWeight="SemiBold" FontSize="15"/>
+                                                </StackPanel>
+                                                <TextBlock Style="{StaticResource CorpoSec}" FontSize="13" TextWrapping="Wrap" Text="Para instalar um programa confiável que o antivírus bloqueia por engano. Pausa só a proteção em tempo real e lembra você de reativar."/>
+                                                <TextBlock x:Name="TxtProtPausarNota" Foreground="{DynamicResource Aviso}" FontSize="12.5" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed"/>
+                                                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                                    <TextBlock Text="Reativar sozinho em:" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextoSec}" Margin="0,0,10,0"/>
+                                                    <ComboBox x:Name="CbProtTempo" Width="130" SelectedIndex="1">
+                                                        <ComboBoxItem Content="15 minutos" Tag="15"/>
+                                                        <ComboBoxItem Content="30 minutos" Tag="30"/>
+                                                        <ComboBoxItem Content="1 hora" Tag="60"/>
+                                                        <ComboBoxItem Content="Só quando eu clicar" Tag="0"/>
+                                                    </ComboBox>
+                                                </StackPanel>
+                                                <Button x:Name="BtnProtPausar" Style="{StaticResource BtnPerigo}" HorizontalAlignment="Left" Margin="0,14,0,0">
+                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE916;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Pausar proteção"/></StackPanel>
+                                                </Button>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Grid.Column="2" Style="{StaticResource Card}">
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                                    <TextBlock Text="&#xEA18;" Style="{StaticResource Icone}" FontSize="16" Foreground="{DynamicResource Ok}" Margin="0,0,10,0"/>
+                                                    <TextBlock Text="Liberar só uma pasta (recomendado)" FontWeight="SemiBold" FontSize="15"/>
+                                                </StackPanel>
+                                                <TextBlock Style="{StaticResource CorpoSec}" FontSize="13" TextWrapping="Wrap" Text="Mais seguro: em vez de desligar tudo, diz ao antivírus para confiar só numa pasta (ex.: Downloads de um instalador). O resto do PC continua protegido."/>
+                                                <Button x:Name="BtnProtExcluir" Style="{StaticResource BtnSecundario}" HorizontalAlignment="Left" Margin="0,14,0,0">
+                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8B7;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Liberar uma pasta..."/></StackPanel>
+                                                </Button>
+                                                <ItemsControl x:Name="ListaExclusoes" Margin="0,10,0,0">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid Margin="0,3">
+                                                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                                <TextBlock Text="&#xE8B7;" Style="{StaticResource Icone}" FontSize="12" Foreground="{DynamicResource TextoFraco}" Margin="0,0,8,0"/>
+                                                                <TextBlock Grid.Column="1" Text="{Binding Titulo}" FontSize="12.5" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{Binding Titulo}"/>
+                                                                <Button Grid.Column="2" Style="{StaticResource BtnLink}" Tag="{Binding Titulo}" Content="Remover" VerticalAlignment="Center"/>
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+
+                                    <Border Style="{StaticResource Card}" Margin="0,14,0,0">
+                                        <StackPanel>
+                                            <TextBlock Text="Abrir a Segurança do Windows" FontWeight="SemiBold" FontSize="15"/>
+                                            <TextBlock Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,4,0,12" TextWrapping="Wrap" Text="Quando o Windows não deixa pausar por programa (Proteção contra Adulteração ligada), ou quando o antivírus é de outro fabricante, use estes atalhos."/>
+                                            <WrapPanel>
+                                                <Button x:Name="BtnProtAbrirSeg" Style="{StaticResource BtnSecundario}" Margin="0,0,10,0"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72E;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Proteção contra vírus"/></StackPanel></Button>
+                                                <Button x:Name="BtnProtAbrirTamper" Style="{StaticResource BtnFantasma}"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE730;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Proteção contra adulteração"/></StackPanel></Button>
+                                            </WrapPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
+
+                            <!-- Desinstalar Office -->
+                            <ScrollViewer x:Name="FerOffice" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                                <Grid>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                    <Border Style="{StaticResource Card}" Margin="0,0,0,14" Padding="22,18">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <Border Width="52" Height="52" CornerRadius="14" Background="{DynamicResource AcentoSuave}"><TextBlock Text="&#xE8A5;" Style="{StaticResource Icone}" FontSize="24" Foreground="{DynamicResource Acento}" HorizontalAlignment="Center"/></Border>
+                                            <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                                                <TextBlock Text="Desinstalar o Office" FontFamily="{DynamicResource FonteTitulo}" FontSize="20" FontWeight="SemiBold"/>
+                                                <TextBlock x:Name="TxtOfficeResumo" Text="Procurando o Office neste PC..." Foreground="{DynamicResource TextoSec}" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <Button x:Name="BtnOfficeAtualizar" Grid.Column="2" Style="{StaticResource BtnFantasma}" Padding="10,6" VerticalAlignment="Top">
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource IconeBtn}" FontSize="12"/><TextBlock Text="Procurar"/></StackPanel>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                    <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,14">
+                                        <StackPanel>
+                                            <TextBlock x:Name="TxtOfficeVazio" Text="Nenhum Office/Microsoft 365 instalado foi encontrado." Foreground="{DynamicResource TextoSec}" Visibility="Collapsed"/>
+                                            <ItemsControl x:Name="ListaOffice">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,6">
+                                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                            <TextBlock Text="&#xE8A5;" Style="{StaticResource Icone}" FontSize="18" Foreground="{DynamicResource Acento}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                                                <TextBlock Text="{Binding Texto}" FontSize="12" Foreground="{DynamicResource TextoFraco}"/>
+                                                            </StackPanel>
+                                                            <Border Grid.Column="2" Style="{StaticResource Chip}" VerticalAlignment="Center"><TextBlock Text="{Binding Tag}" FontSize="11.5" Foreground="{DynamicResource TextoSec}"/></Border>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <Border Background="{DynamicResource AvisoSuave}" CornerRadius="10" Padding="14,10" Margin="0,12,0,0">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                    <TextBlock Text="&#xE7BA;" Style="{StaticResource Icone}" Foreground="{DynamicResource Aviso}" VerticalAlignment="Top" Margin="0,2,10,0"/>
+                                                    <TextBlock Grid.Column="1" Foreground="{DynamicResource Aviso}" TextWrapping="Wrap" Text="Remove o Office inteiro deste PC: Word, Excel, Outlook e os outros. Seus arquivos (.docx, .xlsx) NÃO são apagados. Feche os programas do Office antes. Pode levar alguns minutos."/>
+                                                </Grid>
+                                            </Border>
+                                            <Button x:Name="BtnOfficeDesinstalar" Style="{StaticResource BtnPerigo}" HorizontalAlignment="Left" Margin="0,14,0,0" IsEnabled="False">
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE74D;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Desinstalar o Office completamente"/></StackPanel>
+                                            </Button>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Row="2" Style="{StaticResource Card}">
+                                        <StackPanel>
+                                            <TextBlock x:Name="TxtOfficeStatus" Text="Pronto." FontWeight="SemiBold"/>
+                                            <ProgressBar x:Name="BarraOffice" Style="{StaticResource Barra}" Margin="0,10,0,10" Maximum="100"/>
+                                            <TextBox x:Name="LogOffice" Style="{StaticResource CampoCodigo}" MinHeight="120"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
                             </ScrollViewer>
 
                             <!-- Atalhos -->

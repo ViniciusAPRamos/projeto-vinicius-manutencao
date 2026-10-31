@@ -59,6 +59,7 @@ try {
     . (Join-Path $Script:SrcDir 'nucleo.ps1')
     . (Join-Path $Script:SrcDir 'ferramentas.ps1')
     . (Join-Path $Script:SrcDir 'diagnostico.ps1')
+    . (Join-Path $Script:SrcDir 'seguranca.ps1')
     $sidAlvo = if ($ehAdmin) { Get-SidUsuarioSessao } else { $null }
     Initialize-Otz -SrcDir $Script:SrcDir -SidAlvo $sidAlvo
     Write-Log "===== Otimizador v$($Otz.Versao) aberto (admin: $ehAdmin) ====="
@@ -287,6 +288,7 @@ function Start-Tarefa {
 . (Join-Path `$SrcDir 'nucleo.ps1')
 . (Join-Path `$SrcDir 'ferramentas.ps1')
 . (Join-Path `$SrcDir 'diagnostico.ps1')
+. (Join-Path `$SrcDir 'seguranca.ps1')
 Initialize-Otz -SrcDir `$SrcDir -Fila `$Fila -SidAlvo `$SidAlvo
 $Script
 "@
@@ -894,7 +896,8 @@ $UI.BtnDesfazerItem.Add_Click({
 # ===============================================================
 $Script:FerPaineis = [ordered]@{
     RbFerRede = 'FerRede'; RbFerInicio = 'FerInicio'; RbFerServidor = 'FerServidor'; RbFerSerial = 'FerSerial'
-    RbFerReparo = 'FerReparo'; RbFerProgramas = 'FerProgramas'; RbFerRelatorio = 'FerRelatorio'; RbFerAtalhos = 'FerAtalhos'
+    RbFerReparo = 'FerReparo'; RbFerProgramas = 'FerProgramas'; RbFerRelatorio = 'FerRelatorio'
+    RbFerProtecao = 'FerProtecao'; RbFerOffice = 'FerOffice'; RbFerAtalhos = 'FerAtalhos'
 }
 
 function Show-Ferramenta([string]$Rb) {
@@ -910,6 +913,8 @@ function Show-Ferramenta([string]$Rb) {
             'FerInicio'    { Update-Inicio }
             'FerSerial'    { Update-Serial }
             'FerProgramas' { Initialize-Winget }
+            'FerProtecao'  { Update-Protecao }
+            'FerOffice'    { Update-Office }
             'FerAtalhos'   { Initialize-Atalhos }
         }
     }
@@ -1182,10 +1187,14 @@ $UI.BtnSfc.Add_Click({ Start-Reparo 'sfc' })
 # ---------------- Programas (winget) ----------------
 function Initialize-Winget {
     $S.Winget = (Get-Command winget -ErrorAction SilentlyContinue).Source
-    $lista = Get-ListaWinget
+    $lista = @(Get-ListaWinget)
     $S.WingetLista = New-Object 'System.Collections.ObjectModel.ObservableCollection[Otz.Linha]'
-    foreach ($k in $lista.Keys) { $S.WingetLista.Add((New-Linha -Titulo $lista[$k] -Tag $k)) }
+    foreach ($p in $lista) { $S.WingetLista.Add((New-Linha -Titulo $p.Nome -Texto $p.Grupo -Tag $p.Id)) }
     $UI.ListaWinget.ItemsSource = $S.WingetLista
+    # Agrupa os cartões por categoria (Grupo)
+    $vw = [Windows.Data.CollectionViewSource]::GetDefaultView($S.WingetLista)
+    $vw.GroupDescriptions.Clear()
+    $vw.GroupDescriptions.Add((New-Object Windows.Data.PropertyGroupDescription 'Texto'))
     $propria = Test-Path (Join-Path $Script:SrcDir 'winget-lista.txt')
     $UI.TxtWingetFonte.Text = if ($propria) { 'Usando a sua lista (src\winget-lista.txt). Marque e clique em Instalar.' }
                               else { 'Lista padrão do otimizador. Para usar a sua, copie config\winget-lista-exemplo.txt para src\winget-lista.txt e edite.' }
@@ -1281,6 +1290,176 @@ function Start-Relatorio {
 }
 $UI.BtnRelatorioGerar.Add_Click({ Start-Relatorio })
 $UI.BtnRelatorioPasta.Add_Click({ Start-Process explorer.exe "`"$($Otz.Dados)`"" })
+
+# ---------------- Proteção (antivírus) ----------------
+function Update-Protecao {
+    $UI.BtnProtAtualizar.IsEnabled = $false
+    Start-Tarefa -Nome 'protecao' -Script 'Get-InfoAntivirus; @{ Excl = @(Get-DefenderExclusoes); Pausada = (Test-ProtecaoPausada) }' -AoTerminar {
+        param($saida, $erro)
+        $UI.BtnProtAtualizar.IsEnabled = $true
+        if ($erro -or -not $saida) { $UI.TxtProtTitulo.Text = 'Não foi possível ler a proteção'; $UI.TxtProtDetalhe.Text = [string]$erro; return }
+        $av = $saida | Where-Object { $_.Lista } | Select-Object -First 1
+        $extra = $saida | Where-Object { $_.Excl -ne $null -or $_.Pausada -ne $null } | Select-Object -First 1
+        $S.Av = $av
+
+        $protegido = $true; $nome = 'Microsoft Defender'; $det = ''
+        if ($av.TemTerceiro) {
+            $nome = $av.Terceiros[0].Nome
+            $det = 'Antivírus de outro fabricante no comando. Para pausar, use a janela dele (ícone ao lado do relógio). O otimizador não mexe em antivírus de terceiros.'
+            $protegido = $av.Terceiros[0].Ligado
+        } elseif ($av.Defender -and $av.Defender.Presente) {
+            $protegido = $av.Defender.RealTime
+            $tp = if ($av.Defender.TamperProtegido) { 'Proteção contra adulteração: ligada' } else { 'Proteção contra adulteração: desligada' }
+            $det = if ($av.Defender.RealTime) { "Proteção em tempo real ligada.  ·  $tp" } else { "Proteção em tempo real DESLIGADA.  ·  $tp" }
+        } else {
+            $nome = 'Proteção'; $det = 'Não foi possível falar com o Defender.'
+        }
+        $UI.TxtProtTitulo.Text = if ($protegido) { "$nome protegendo o PC" } else { "$nome com a proteção desligada" }
+        $UI.TxtProtDetalhe.Text = $det
+        $UI.IcoProt.Text = if ($protegido) { G 0xE72E } else { G 0xE7BA }
+        Set-Referencia $UI.IcoProt ([Windows.Controls.TextBlock]::ForegroundProperty) $(if ($protegido) { 'Ok' } else { 'Aviso' })
+        Set-Referencia $UI.CirculoProt ([Windows.Controls.Border]::BackgroundProperty) $(if ($protegido) { 'OkSuave' } else { 'AvisoSuave' })
+
+        # Botão Pausar: habilitado só quando dá para agir por script (Defender, tamper OFF, sem terceiro)
+        $podePausar = $av.Defender -and $av.Defender.Presente -and -not $av.Defender.TamperProtegido -and -not $av.TemTerceiro
+        $UI.BtnProtPausar.IsEnabled = $podePausar -and $protegido
+        $UI.TxtProtPausarNota.Visibility = if ($podePausar) { 'Collapsed' } else { 'Visible' }
+        $UI.TxtProtPausarNota.Text = if ($av.TemTerceiro) { "Seu antivírus ($nome) é de outro fabricante: pause pela janela dele." }
+                                     elseif ($av.Defender -and $av.Defender.TamperProtegido) { 'Bloqueado pela Proteção contra Adulteração. Use o botão "Proteção contra adulteração" abaixo para desligá-la primeiro.' }
+                                     else { 'Não é possível pausar por programa neste PC.' }
+
+        $pausada = $extra -and $extra.Pausada -and -not $protegido
+        $UI.BannerProtPausada.Visibility = if ($pausada) { 'Visible' } else { 'Collapsed' }
+        if ($pausada) { $UI.TxtProtPausadaSub.Text = 'Reative assim que terminar de instalar o programa. Nunca navegue com a proteção desligada.' }
+
+        $excl = @(); if ($extra) { $excl = @($extra.Excl) }
+        $UI.ListaExclusoes.ItemsSource = ConvertTo-Linhas @($excl | Where-Object { $_ } | ForEach-Object { New-Linha -Titulo $_ })
+    }
+}
+$UI.BtnProtAtualizar.Add_Click({ Update-Protecao })
+
+$S.TimerProt = New-Object Windows.Threading.DispatcherTimer
+$S.TimerProt.Add_Tick({ $S.TimerProt.Stop(); Invoke-ReativarProtecao 'O tempo acabou' })
+
+function Invoke-PausarProtecao {
+    Start-Tarefa -Nome 'prot-pausar' -Script 'Suspend-Defender' -AoTerminar {
+        param($saida, $erro)
+        $r = if ($saida) { $saida[0] } else { @{ Status = 'bloqueado'; Mensagem = [string]$erro } }
+        if ($r.Status -eq 'ok') {
+            Show-Toast $r.Mensagem 'aviso'
+            $min = [int]([string]$UI.CbProtTempo.SelectedItem.Tag)
+            if ($min -gt 0) {
+                $S.TimerProt.Interval = [TimeSpan]::FromMinutes($min)
+                $S.TimerProt.Start()
+                Show-Toast "A proteção volta sozinha em $min minutos." 'info'
+            }
+        } elseif ($r.Status -eq 'bloqueado') {
+            Show-Dialogo -Titulo 'O Windows não deixa pausar por programa' -Texto $r.Mensagem -Tipo 'info' -TextoOk 'Abrir Segurança do Windows' -SoOk -Acao { Start-Process 'windowsdefender://threatsettings' }
+        } else {
+            Show-Dialogo -Titulo 'Antivírus de outro fabricante' -Texto $r.Mensagem -Tipo 'info' -SoOk -TextoOk 'Entendi'
+        }
+        Update-Protecao
+    }
+}
+
+function Invoke-ReativarProtecao([string]$Motivo = '') {
+    $S.TimerProt.Stop()
+    Start-Tarefa -Nome 'prot-reativar' -Script 'Resume-Defender' -AoTerminar {
+        param($saida, $erro)
+        $r = if ($saida) { $saida[0] } else { @{ Status = 'aviso'; Mensagem = [string]$erro } }
+        Show-Toast $r.Mensagem $(if ($r.Status -eq 'ok') { 'ok' } else { 'aviso' })
+        Update-Protecao
+    }
+}
+
+$UI.BtnProtPausar.Add_Click({
+    Show-Dialogo -Titulo 'Pausar a proteção contra vírus?' -Tipo 'perigo' -TextoOk 'Pausar proteção' `
+        -Texto 'Só faça isso para instalar um programa que você CONFIA e que o antivírus bloqueia por engano. Não baixe nada nem navegue enquanto estiver pausado.' `
+        -Linhas @((New-Linha -Titulo 'Pausa só a proteção em tempo real' -Texto 'O resto do Windows continua funcionando.' -Nivel 'info'), (New-Linha -Titulo 'Lembre de reativar' -Texto 'O otimizador avisa e pode reativar sozinho no tempo escolhido.' -Nivel 'info')) `
+        -Acao { Invoke-PausarProtecao }
+})
+$UI.BtnProtReativarTopo.Add_Click({ Invoke-ReativarProtecao })
+$UI.BtnProtAbrirSeg.Add_Click({ try { Start-Process 'windowsdefender://threat' } catch { Start-Process 'windowsdefender:' } })
+$UI.BtnProtAbrirTamper.Add_Click({ try { Start-Process 'windowsdefender://threatsettings' } catch { Start-Process 'windowsdefender:' } })
+$UI.BtnProtExcluir.Add_Click({
+    $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
+    $dlg.Description = 'Escolha a pasta que o antivírus deve confiar (ex.: onde está o instalador)'
+    if ($dlg.ShowDialog() -ne 'OK') { return }
+    $pasta = $dlg.SelectedPath
+    Start-Tarefa -Nome 'prot-excluir' -Script 'Add-DefenderExclusao $Parametros.P' -Parametros @{ P = $pasta } -AoTerminar {
+        param($saida, $erro)
+        if ($erro) { Show-Toast "Não foi possível liberar: $erro" 'erro' } else { Show-Toast 'Pasta liberada. Lembre de remover depois.' 'ok' }
+        Update-Protecao
+    }
+})
+$UI.ListaExclusoes.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Windows.RoutedEventHandler]{
+    param($origem, $e)
+    $pasta = [string]$e.OriginalSource.Tag
+    if (-not $pasta) { return }
+    Start-Tarefa -Nome 'prot-incluir' -Script 'Remove-DefenderExclusao $Parametros.P' -Parametros @{ P = $pasta } -AoTerminar {
+        param($saida, $erro)
+        if ($erro) { Show-Toast "Falhou: $erro" 'erro' } else { Show-Toast 'Pasta volta a ser verificada pelo antivírus.' 'ok' }
+        Update-Protecao
+    }
+})
+
+# ---------------- Desinstalar Office ----------------
+function Update-Office {
+    $UI.BtnOfficeAtualizar.IsEnabled = $false
+    Start-Tarefa -Nome 'office' -Script 'Get-OfficeInstalado' -AoTerminar {
+        param($saida, $erro)
+        $UI.BtnOfficeAtualizar.IsEnabled = $true
+        $itens = @($saida | Where-Object { $_ -and $_.Nome })
+        $S.OfficeItens = $itens
+        $UI.ListaOffice.ItemsSource = ConvertTo-Linhas @($itens | ForEach-Object { New-Linha -Titulo $_.Nome -Texto $_.Versao -Tag $_.Tipo })
+        $UI.TxtOfficeVazio.Visibility = if ($itens.Count) { 'Collapsed' } else { 'Visible' }
+        $UI.BtnOfficeDesinstalar.IsEnabled = ($itens.Count -gt 0)
+        $UI.TxtOfficeResumo.Text = if ($itens.Count) { "$($itens.Count) produto(s) do Office encontrados neste PC." } else { 'Nenhum Office instalado. Nada a remover.' }
+    }
+}
+$UI.BtnOfficeAtualizar.Add_Click({ Update-Office })
+$UI.BtnOfficeDesinstalar.Add_Click({
+    if (-not $S.OfficeItens -or $S.OfficeItens.Count -eq 0) { return }
+    $linhas = @($S.OfficeItens | ForEach-Object { New-Linha -Titulo $_.Nome -Nivel 'alto' })
+    Show-Dialogo -Titulo 'Desinstalar o Office completamente?' -Tipo 'perigo' -TextoOk 'Desinstalar' `
+        -Texto 'O Office inteiro será removido deste PC. Seus arquivos (.docx, .xlsx, .pptx) continuam salvos. Feche Word, Excel e Outlook antes de continuar.' `
+        -Linhas $linhas -Acao { Start-DesinstalarOffice }
+})
+
+function Start-DesinstalarOffice {
+    if (Test-TarefaAtiva 'office-rm') { return }
+    $UI.BtnOfficeDesinstalar.IsEnabled = $false
+    $UI.LogOffice.Text = ''
+    $UI.BarraOffice.Value = 0
+    $UI.TxtOfficeStatus.Text = 'Desinstalando o Office... pode levar alguns minutos e uma janela da Microsoft pode aparecer.'
+    Start-Tarefa -Nome 'office-rm' -Script @'
+$itens = $Parametros.Itens
+$n = 0; $falhas = 0
+foreach ($i in $itens) {
+    $n++
+    Send-Evento @{ Tipo = 'etapa'; Texto = "($n de $($itens.Count)) Removendo $($i.Nome)..." }
+    Send-Evento @{ Tipo = 'log'; Texto = "===== $($i.Nome) =====" }
+    $c = Uninstall-OfficeItem $i
+    if ($c -ne 0 -and $null -ne $c) { $falhas++; Send-Evento @{ Tipo = 'log'; Texto = "Codigo de saida: $c" } }
+    Send-Evento @{ Tipo = 'progresso'; Valor = (100 * $n / $itens.Count) }
+}
+"$($itens.Count - $falhas) de $($itens.Count) removido(s)."
+'@ -Parametros @{ Itens = $S.OfficeItens } -AoEvento {
+        param($ev)
+        switch ($ev.Tipo) {
+            'log'       { $UI.LogOffice.AppendText($ev.Texto + "`r`n"); $UI.LogOffice.ScrollToEnd() }
+            'etapa'     { $UI.TxtOfficeStatus.Text = $ev.Texto }
+            'progresso' { Start-Animacao $UI.BarraOffice ([Windows.Controls.Primitives.RangeBase]::ValueProperty) $null $ev.Valor 400 }
+        }
+    } -AoTerminar {
+        param($saida, $erro)
+        $UI.BtnOfficeDesinstalar.IsEnabled = $true
+        Start-Animacao $UI.BarraOffice ([Windows.Controls.Primitives.RangeBase]::ValueProperty) $null 100 300
+        $UI.TxtOfficeStatus.Text = if ($erro) { "Falhou: $erro" } else { "Concluído. $(@($saida) -join ' ') Reinicie o PC para terminar a limpeza." }
+        Show-Toast 'Desinstalação do Office concluída. Veja o log.' $(if ($erro) { 'erro' } else { 'ok' })
+        Update-Office
+    }
+}
 
 # ---------------- Atalhos ----------------
 function Initialize-Atalhos {
@@ -1865,6 +2044,15 @@ if ($Captura) {
         { Request-Aplicar @($S.PorId['serv.sysmain'], $S.PorId['serv.impressao'], $S.PorId['gpu.vrr'], $S.PorId['game.hags']) }
         { Save-Captura '18-confirmar-aplicar' }
         { Hide-Dialogo }
+        { Open-Pagina 'NavFerramentas'; Show-Ferramenta 'RbFerProtecao' }
+        { }
+        { Save-Captura '19-protecao' }
+        { Show-Ferramenta 'RbFerOffice' }
+        { }
+        { Save-Captura '20-office' }
+        { Show-Ferramenta 'RbFerProgramas' }
+        { }
+        { Save-Captura '21-programas' }
         { Open-Pagina 'NavHistorico' }
         { Save-Captura '7-historico' }
         { Open-Pagina 'NavAjuda' }

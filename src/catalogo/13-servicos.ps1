@@ -5,6 +5,60 @@
 $cat = 'Serviços em segundo plano'
 
 @(
+    # Programas de terceiros (src\segundoplano.ps1 + src\conhecidos.ps1). A tela Serviços
+    # salva a escolha do usuário; sem escolha (perfis, Aplicar-Perfil.bat) vale só o "seguro".
+    @{
+        Id        = 'serv.segundo-plano'
+        Categoria = $cat
+        Nome      = 'Limpar o segundo plano (programas de terceiros)'
+        Resumo    = 'Desliga agentes do fabricante, atualizadores e programas que abrem sozinhos com o Windows. Vale para sempre, com desfazer.'
+        Detalhe   = 'Serviços de terceiros passam de Automático para Manual (o programa ainda liga o serviço quando precisa) e itens de inicialização são desligados como no Gerenciador de Tarefas. Sem escolha feita na página Serviços, entram só os itens reconhecidos como seguros. Anti-cheat, drivers, ventoinhas, antivírus e programas da Microsoft nunca entram. Uma tarefa semanal ("Guardião") desliga de novo o que uma atualização religar.'
+        Indicado  = 'Notebooks e PCs de fábrica (Dell, HP, Lenovo...), PCs com 8 ou 16 GB e quem joga.'
+        Atencao   = 'Cria a tarefa "Otimizador Vinicius - Manutencao" no Agendador, se ainda não existir, para o Guardião semanal.'
+        Risco     = 'seguro'
+        Perfis    = @('gamer', 'leve', 'ram')
+        Tecnico   = "sc config <serviço> start= demand`nStartupApproved\Run: 03 (desligado)`nEstado e valores originais: Documentos\OtimizadorVinicius\segundo-plano.json"
+        Detectar  = {
+            $itens = @(Get-ItensSegundoPlano)
+            $alvo = Get-IdsAlvoSegundoPlano $itens
+            $pend = @($itens | Where-Object { $alvo -contains $_.Id -and -not $_.Aplicado })
+            $feitos = @($itens | Where-Object Aplicado)
+            if ($pend.Count) {
+                $mb = 0.0; foreach ($i in $pend) { $mb += $i.Bytes }
+                return @{ Estado = $(if ($feitos.Count) { 'parcial' } else { 'nao' }); Texto = "$($pend.Count) item(ns) para desligar (~$(Format-Tamanho $mb) agora)" }
+            }
+            if ($feitos.Count) { return @{ Estado = 'aplicado'; Texto = "$($feitos.Count) item(ns) desligado(s)" } }
+            return @{ Estado = 'aplicado'; Texto = 'Nada a desligar neste PC' }
+        }
+        Simular   = {
+            $itens = @(Get-ItensSegundoPlano)
+            $alvo = Get-IdsAlvoSegundoPlano $itens
+            foreach ($i in $itens) {
+                if ($alvo -contains $i.Id -and -not $i.Aplicado) { "→ $($i.Tecnico)  (~$(Format-Tamanho $i.Bytes))" }
+                elseif ($i.Aplicado -and $alvo -notcontains $i.Id) { "← $($i.Nome): volta ao original (saiu da escolha)" }
+                elseif ($i.Aplicado) { "= $($i.Nome) já está desligado" }
+            }
+        }
+        Aplicar   = {
+            $itens = @(Get-ItensSegundoPlano)
+            $alvo = Get-IdsAlvoSegundoPlano $itens
+            $r = Sync-SegundoPlano $alvo
+            if (-not (Get-Original 'serv.segundo-plano')) { Set-Original 'serv.segundo-plano' @{ Data = (Get-Date).ToString('s') } }
+            $guardiao = $false
+            try { $guardiao = Enable-GuardiaoSegundoPlano } catch { Write-Log "Guardião não ativado: $($_.Exception.Message)" }
+            $partes = @("$(@($r.Aplicados).Count) desligado(s), ~$(Format-Tamanho $r.Bytes) a menos")
+            if ($r.Voltaram) { $partes += "$($r.Voltaram) voltaram ao original" }
+            if ($guardiao) { $partes += 'Guardião semanal ativo' }
+            if (@($r.Erros).Count) { return @{ Status = 'aviso'; Mensagem = (($partes -join '; ') + '. Falhou: ' + (@($r.Erros) -join ' | ')) } }
+            return @{ Status = 'ok'; Mensagem = (($partes -join '; ') + '. A inicialização vale a partir do próximo login.') }
+        }
+        Desfazer  = {
+            param($orig)
+            $r = Undo-SegundoPlano
+            if (@($r.Erros).Count) { return @{ Status = 'erro'; Mensagem = (@($r.Erros) -join ' | ') } }
+            return @{ Status = 'ok'; Mensagem = "$($r.Desfeitos) item(ns) voltaram ao que eram." }
+        }
+    }
     @{
         Id        = 'serv.telemetria'
         Categoria = $cat

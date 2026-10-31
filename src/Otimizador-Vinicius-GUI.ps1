@@ -75,6 +75,7 @@ if ($Script:Silencioso) {
         . (Join-Path $Script:SrcDir 'manutencao.ps1')
         . (Join-Path $Script:SrcDir 'analise.ps1')
         . (Join-Path $Script:SrcDir 'inventario.ps1')
+        . (Join-Path $Script:SrcDir 'segundoplano.ps1')
         $sidAlvo = if ($ehAdmin) { Get-SidUsuarioSessao } else { $null }
         Initialize-Otz -SrcDir $Script:SrcDir -SidAlvo $sidAlvo
         if ($Inventario) {
@@ -136,6 +137,7 @@ try {
     . (Join-Path $Script:SrcDir 'analise.ps1')
     . (Join-Path $Script:SrcDir 'programas.ps1')
     . (Join-Path $Script:SrcDir 'inventario.ps1')
+    . (Join-Path $Script:SrcDir 'segundoplano.ps1')
     . (Join-Path $Script:SrcDir 'glossario.ps1')
     $sidAlvo = if ($ehAdmin) { Get-SidUsuarioSessao } else { $null }
     Initialize-Otz -SrcDir $Script:SrcDir -SidAlvo $sidAlvo
@@ -369,6 +371,8 @@ function Start-Tarefa {
 . (Join-Path `$SrcDir 'analise.ps1')
 . (Join-Path `$SrcDir 'programas.ps1')
 . (Join-Path `$SrcDir 'inventario.ps1')
+. (Join-Path `$SrcDir 'manutencao.ps1')
+. (Join-Path `$SrcDir 'segundoplano.ps1')
 Initialize-Otz -SrcDir `$SrcDir -Fila `$Fila -SidAlvo `$SidAlvo
 $Script
 "@
@@ -423,7 +427,7 @@ function Show-Pagina([string]$Pagina) {
         'PagDiagnostico' { if (-not $S.DiagCarregado.Count) { Show-Diagnostico 'RbDiagLento' } }
         'PagVideo'       { if (-not $S.GpuCarregada) { Update-Gpu } }
         'PagNotebook'    { if (-not $S.BateriaCarregada) { Update-Bateria } }
-        'PagServicos'    { Update-Ram }
+        'PagServicos'    { Update-Ram; if (-not $S.SegCarregado) { Update-SegundoPlano } }
         'PagVerificar'   { Show-Evolucao }
         'PagFerramentas' { if (-not $S.FerCarregado.Count) { Show-Ferramenta 'RbFerRede' } }
     }
@@ -1008,6 +1012,7 @@ function Complete-Execucao($Saida, $Erro) {
         Update-Rodape
         Start-Deteccao
         if (@($okItens | Where-Object { $_.Id -like 'serv.*' }).Count) { Update-Ram -Comparar }
+        if ($S.SegCarregado -and @($res | Where-Object Id -eq 'serv.segundo-plano').Count) { Update-SegundoPlano }
         if (@($okItens | Where-Object { $_.Id -like 'gpu.*' }).Count) { $S.GpuCarregada = $false }
         if ($S.FerCarregado['FerEspaco'] -and @($okItens | Where-Object { $_.Id -like 'limpeza.*' -or $_.Id -eq 'sistema.hibernacao' }).Count) { Update-Espaco }
     }
@@ -1926,6 +1931,106 @@ $UI.BtnServRecomendados.Add_Click({
     Show-Toast $(if ($n) { "$n serviço(s) recomendados marcados. Revise e clique em Aplicar." } else { 'Os recomendados já estão desligados neste PC.' }) 'info'
 })
 
+# ---------------- Limpar o segundo plano (programas de terceiros) ----------------
+$S.SegSelos = @{ seguro = 'Recomendado'; depende = 'Depende do uso'; desconhecido = 'Não reconhecido' }
+
+function Update-SegundoPlano {
+    if (Test-TarefaAtiva 'segundo-plano') { return }
+    $S.SegCarregado = $true
+    $UI.TxtSegResumo.Text = 'Analisando o que roda neste PC...'
+    $UI.BtnSegAplicar.IsEnabled = $false
+    $script = @'
+$r = [ordered]@{}
+$r.Itens = @(Get-ItensSegundoPlano)
+$r.Guias = @(Get-GuiasBandejaAtivas)
+$r.Escolhidos = (Get-EstadoSegundoPlano).Escolhidos
+$r.Mapa = @{}
+foreach ($p in Get-MapaProcessos) { $r.Mapa[$p.Id] = $p.Bytes }
+[pscustomobject]$r
+'@
+    Start-Tarefa -Nome 'segundo-plano' -Script $script -AoTerminar {
+        param($saida, $erro)
+        $d = @($saida | Where-Object { $_ -and $_.PSObject.Properties['Itens'] })[0]
+        if (-not $d) { $UI.TxtSegResumo.Text = "Não foi possível analisar: $erro"; return }
+        Show-SegundoPlano $d
+    }
+}
+
+function Show-SegundoPlano($D) {
+    $S.SegItens = @($D.Itens)
+    $S.SegMapa = $D.Mapa
+    $alvo = if ($null -ne $D.Escolhidos) { [string[]]@($D.Escolhidos) } else { [string[]]@($S.SegItens | Where-Object Nivel -eq 'seguro' | ForEach-Object Id) }
+    $col = New-Object 'System.Collections.ObjectModel.ObservableCollection[Otz.Linha]'
+    for ($n = 0; $n -lt $S.SegItens.Count; $n++) {
+        $i = $S.SegItens[$n]
+        $selo = $S.SegSelos[[string]$i.Nivel]
+        if ($i.Aplicado) { $selo += '  ·  desligado pelo otimizador' }
+        $mb = if ($i.Bytes -gt 0) { Format-Tamanho $i.Bytes } elseif ($i.Aplicado) { '—' } else { 'parado' }
+        $l = New-Linha -Titulo $i.Nome -Texto "$($i.Grupo)  ·  $($i.Texto)" -Extra "Ao desligar: $($i.Efeito)`n$($i.Tecnico)" -Tag $selo -Icone $mb -Nivel ([string]$i.Nivel)
+        $l.Marcado = ($alvo -contains $i.Id) -or [bool]$i.Aplicado
+        $l.Valor = [double]$n
+        $l.add_PropertyChanged({ param($o, $e) if ($e.PropertyName -eq 'Marcado') { Update-ResumoSeg } })
+        $col.Add($l)
+    }
+    $S.SegLinhas = $col
+    $UI.ListaSeg.ItemsSource = $col
+    # Guias: o que só se desliga por dentro do próprio programa
+    $guias = New-Object System.Collections.Generic.List[Otz.Linha]
+    foreach ($g in @($D.Guias)) { $guias.Add((New-Linha -Titulo "$($g.Nome) · $(Format-Tamanho $g.Bytes) agora" -Texto $g.Texto -Nivel 'info')) }
+    foreach ($i in $S.SegItens) { if ($i.Bandeja) { $guias.Add((New-Linha -Titulo "$($i.Nome): fechar de verdade" -Texto $i.Bandeja -Nivel 'info')) } }
+    $UI.ListaSegGuia.ItemsSource = $guias.ToArray()
+    $UI.TxtSegGuiaTitulo.Visibility = if ($guias.Count) { 'Visible' } else { 'Collapsed' }
+    $UI.BtnSegDesfazer.Visibility = if (@($S.SegItens | Where-Object Aplicado).Count) { 'Visible' } else { 'Collapsed' }
+    $UI.BtnSegAplicar.IsEnabled = $S.SegItens.Count -gt 0
+    Update-ResumoSeg
+}
+
+# Memória dos itens marcados, sem contar o mesmo processo duas vezes
+function Measure-SegBytes($Itens) {
+    $pids = New-Object System.Collections.Generic.HashSet[int]
+    foreach ($i in $Itens) { foreach ($p in @($i.Pids)) { [void]$pids.Add([int]$p) } }
+    $t = 0.0
+    foreach ($p in $pids) { if ($S.SegMapa.ContainsKey($p)) { $t += [double]$S.SegMapa[$p] } }
+    return $t
+}
+
+function Get-SegMarcados { return @($S.SegLinhas | Where-Object Marcado | ForEach-Object { $S.SegItens[[int]$_.Valor] }) }
+
+function Update-ResumoSeg {
+    if (-not $S.SegItens -or $S.SegItens.Count -eq 0) { $UI.TxtSegResumo.Text = 'Nada para limpar: nenhum programa de terceiros liga sozinho neste PC.'; return }
+    $marc = @(Get-SegMarcados)
+    $total = Measure-SegBytes $S.SegItens
+    $sel = Measure-SegBytes @($marc | Where-Object { -not $_.Aplicado })
+    $feitos = @($S.SegItens | Where-Object Aplicado).Count
+    $txt = "$($S.SegItens.Count) programa(s) de terceiros ligam sozinhos e usam $(Format-Tamanho $total) agora. Marcados: $($marc.Count)"
+    if ($sel -gt 0) { $txt += " (~$(Format-Tamanho $sel) a menos)" }
+    if ($feitos) { $txt += ". Já desligados: $feitos" }
+    $UI.TxtSegResumo.Text = "$txt."
+}
+
+$UI.BtnSegAtualizar.Add_Click({ Update-SegundoPlano })
+$UI.BtnSegAplicar.Add_Click({
+    $marc = @(Get-SegMarcados)
+    $desligar = @($marc | Where-Object { -not $_.Aplicado })
+    $voltar = @($S.SegItens | Where-Object { $_.Aplicado -and ($marc -notcontains $_) })
+    if (-not $desligar.Count -and -not $voltar.Count) { Show-Toast 'Nada mudou: a escolha já está aplicada.' 'info'; return }
+    $linhas = @()
+    foreach ($i in $desligar) { $linhas += New-Linha -Titulo "Desligar: $($i.Nome)" -Texto $i.Tecnico -Nivel $(if ($i.Nivel -eq 'seguro') { 'ok' } else { 'medio' }) }
+    foreach ($i in $voltar) { $linhas += New-Linha -Titulo "Voltar ao normal: $($i.Nome)" -Nivel 'info' }
+    $ids = [string[]]@($marc | ForEach-Object Id)
+    Show-Dialogo -Titulo "Aplicar a escolha ($($desligar.Count) para desligar)?" -Texto 'Serviços vão para Manual (o programa ainda os liga quando precisa) e itens de inicialização são desligados. Vale para sempre e pode ser desfeito aqui ou no Histórico. Uma tarefa semanal (Guardião) desliga de novo o que uma atualização religar.' `
+        -Linhas $linhas -TextoOk 'Aplicar' -Dados $ids -Acao {
+        param($escolha)
+        try { Save-EscolhidosSegundoPlano $escolha } catch { Show-Toast "Não foi possível salvar a escolha: $($_.Exception.Message)" 'erro'; return }
+        Start-Execucao 'aplicar' @('serv.segundo-plano')
+    }
+})
+$UI.BtnSegDesfazer.Add_Click({
+    Show-Dialogo -Titulo 'Desfazer a limpeza do segundo plano?' -Texto 'Cada serviço volta ao modo que tinha e cada item de inicialização volta a ligar com o Windows.' -TextoOk 'Desfazer tudo' -Tipo 'perigo' -Acao {
+        Start-Execucao 'desfazer' @('serv.segundo-plano')
+    }
+})
+
 # ---------------- Verificar o PC ----------------
 $S.Etapas = New-Object 'System.Collections.ObjectModel.ObservableCollection[Otz.Linha]'
 $S.NomesEtapas = @('Ajustes do Windows (o que já está otimizado)', 'Segurança: antivírus e firewall', 'Atualizações do Windows', 'Hardware: discos e memória', 'Placa de vídeo e monitores', 'Inicialização, temporários e tempo ligado')
@@ -2382,6 +2487,7 @@ function Initialize-Manut {
     $UI.ChkManutDns.IsChecked = $tar -contains 'dns'
     $UI.ChkManutLixeira.IsChecked = $tar -contains 'lixeira'
     $UI.ChkManutVerificar.IsChecked = [bool]$cfg.Verificar
+    $UI.ChkManutGuardiao.IsChecked = [bool]$cfg.Guardiao
     Update-StatusManut
 }
 foreach ($rb in 'RbManutSemanal', 'RbManutDiaria') { $UI[$rb].Add_Checked({ $UI.PainelManutDia.Visibility = if ($UI.RbManutDiaria.IsChecked) { 'Collapsed' } else { 'Visible' } }) }
@@ -2397,6 +2503,7 @@ function Get-ConfigManutTela {
         Hora       = [string]$UI.CbManutHora.SelectedItem
         Tarefas    = $tar
         Verificar  = [bool]$UI.ChkManutVerificar.IsChecked
+        Guardiao   = [bool]$UI.ChkManutGuardiao.IsChecked
     }
 }
 
@@ -2430,7 +2537,7 @@ function Update-StatusManut {
 
 $UI.BtnManutAtivar.Add_Click({
     $cfg = Get-ConfigManutTela
-    if (@($cfg.Tarefas).Count -eq 0 -and -not $cfg.Verificar) { Show-Toast 'Marque pelo menos uma coisa para a manutenção fazer.' 'aviso'; return }
+    if (@($cfg.Tarefas).Count -eq 0 -and -not $cfg.Verificar -and -not $cfg.Guardiao) { Show-Toast 'Marque pelo menos uma coisa para a manutenção fazer.' 'aviso'; return }
     $UI.BtnManutAtivar.IsEnabled = $false
     Start-Tarefa -Nome 'manut-reg' -Script 'Register-Manutencao $Parametros.Cfg' -Parametros @{ Cfg = $cfg } -AoTerminar {
         param($saida, $erro)
@@ -3274,7 +3381,12 @@ if ($Captura) {
         { Open-Pagina 'NavNotebook' }
         { Save-Captura '16-notebook' }
         { Open-Pagina 'NavServicos' }
-        { $UI.BtnServRecomendados.RaiseEvent((New-Object Windows.RoutedEventArgs ([Windows.Controls.Primitives.ButtonBase]::ClickEvent))) }
+        { }
+        { }
+        { Save-Captura '17a-segundo-plano' }
+        { $UI.PagServicos.ScrollToVerticalOffset(520) }
+        { Save-Captura '17b-segundo-plano-lista' }
+        { $UI.PagServicos.ScrollToTop(); $UI.BtnServRecomendados.RaiseEvent((New-Object Windows.RoutedEventArgs ([Windows.Controls.Primitives.ButtonBase]::ClickEvent))) }
         { Save-Captura '17-servicos' }
         { Request-Aplicar @($S.PorId['serv.sysmain'], $S.PorId['serv.impressao'], $S.PorId['gpu.vrr'], $S.PorId['game.hags']) }
         { Save-Captura '18-confirmar-aplicar' }

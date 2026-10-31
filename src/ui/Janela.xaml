@@ -2200,6 +2200,7 @@
                                                 <CheckBox x:Name="ChkManutDns" Style="{StaticResource Caixa}" Content="Limpar cache de DNS" IsChecked="True" Margin="0,4"/>
                                                 <CheckBox x:Name="ChkManutLixeira" Style="{StaticResource Caixa}" Content="Esvaziar a Lixeira (apaga para sempre)" Margin="0,4"/>
                                                 <CheckBox x:Name="ChkManutVerificar" Style="{StaticResource Caixa}" Content="Verificar o PC e guardar a nota (gráfico de evolução)" IsChecked="True" Margin="0,4"/>
+                                                <CheckBox x:Name="ChkManutGuardiao" Style="{StaticResource Caixa}" Content="Guardião: desligar de novo o que voltar a abrir sozinho (Serviços > Limpar o segundo plano)" Margin="0,4"/>
                                             </StackPanel>
                                         </Border>
                                     </Grid>
@@ -2951,6 +2952,72 @@
                                     </StackPanel>
                                 </Border>
                             </Grid>
+                            <!-- Limpar o segundo plano (programas de terceiros) -->
+                            <Border Style="{StaticResource Card}" Margin="0,22,0,0" Padding="22,18">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <Border Width="52" Height="52" CornerRadius="14" Background="{DynamicResource AcentoSuave}" VerticalAlignment="Top"><TextBlock Text="&#xE9F5;" Style="{StaticResource Icone}" FontSize="22" Foreground="{DynamicResource Acento}" HorizontalAlignment="Center"/></Border>
+                                        <StackPanel Grid.Column="1" Margin="16,0">
+                                            <TextBlock Text="Limpar o segundo plano" FontFamily="{DynamicResource FonteTitulo}" FontSize="20" FontWeight="SemiBold"/>
+                                            <TextBlock Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,4,0,0" Text="Programas do fabricante, launchers e agentes que abrem sozinhos com o Windows e ficam gastando memória, mesmo com as janelas fechadas. Aplique uma vez: fica valendo e tem desfazer."/>
+                                            <TextBlock x:Name="TxtSegResumo" FontWeight="SemiBold" FontSize="14" Margin="0,10,0,0" Text="Analisando o que roda neste PC..."/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" VerticalAlignment="Top">
+                                            <Button x:Name="BtnSegAplicar" Style="{StaticResource BtnPrimario}" IsEnabled="False">
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE768;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Aplicar a escolha"/></StackPanel>
+                                            </Button>
+                                            <Button x:Name="BtnSegDesfazer" Style="{StaticResource BtnFantasma}" Margin="0,8,0,0" Visibility="Collapsed">
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE7A7;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Desfazer tudo"/></StackPanel>
+                                            </Button>
+                                            <Button x:Name="BtnSegAtualizar" Style="{StaticResource BtnFantasma}" Margin="0,8,0,0">
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Analisar de novo"/></StackPanel>
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+                                    <WrapPanel Margin="0,14,0,6">
+                                        <Border Background="{DynamicResource OkSuave}" CornerRadius="8" Padding="8,3" Margin="0,0,8,4"><TextBlock Text="Recomendado: vem marcado" FontSize="12" Foreground="{DynamicResource Ok}"/></Border>
+                                        <Border Background="{DynamicResource AvisoSuave}" CornerRadius="8" Padding="8,3" Margin="0,0,8,4"><TextBlock Text="Depende do seu uso: leia antes" FontSize="12" Foreground="{DynamicResource Aviso}"/></Border>
+                                        <Border Background="{DynamicResource Superficie2}" CornerRadius="8" Padding="8,3" Margin="0,0,8,4"><TextBlock Text="Não reconhecido: só se souber o que é" FontSize="12" Foreground="{DynamicResource TextoSec}"/></Border>
+                                    </WrapPanel>
+                                    <ItemsControl x:Name="ListaSeg">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border x:Name="C" Background="{DynamicResource Superficie2}" CornerRadius="12" Padding="14,10" Margin="0,0,0,6" BorderBrush="Transparent" BorderThickness="1">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                        <CheckBox Style="{StaticResource Caixa}" IsChecked="{Binding Marcado, Mode=TwoWay}" VerticalAlignment="Top" Margin="0,2,12,0"/>
+                                                        <StackPanel Grid.Column="1">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold"/>
+                                                                <Border x:Name="Selo" CornerRadius="6" Padding="6,1" Margin="8,0,0,0" Background="{DynamicResource Superficie}" VerticalAlignment="Center">
+                                                                    <TextBlock x:Name="TxtSelo" Text="{Binding Tag}" FontSize="11" Foreground="{DynamicResource TextoSec}"/>
+                                                                </Border>
+                                                            </StackPanel>
+                                                            <TextBlock Text="{Binding Texto}" Foreground="{DynamicResource TextoSec}" FontSize="12.5" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                                            <TextBlock Text="{Binding Extra}" Foreground="{DynamicResource TextoFraco}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0" Visibility="{Binding TemExtra, Converter={StaticResource B2V}}"/>
+                                                        </StackPanel>
+                                                        <TextBlock Grid.Column="2" Text="{Binding Icone}" FontWeight="SemiBold" VerticalAlignment="Top" Margin="12,2,0,0"/>
+                                                    </Grid>
+                                                </Border>
+                                                <DataTemplate.Triggers>
+                                                    <DataTrigger Binding="{Binding Marcado}" Value="True"><Setter TargetName="C" Property="BorderBrush" Value="{DynamicResource Acento}"/></DataTrigger>
+                                                    <DataTrigger Binding="{Binding Nivel}" Value="seguro">
+                                                        <Setter TargetName="Selo" Property="Background" Value="{DynamicResource OkSuave}"/>
+                                                        <Setter TargetName="TxtSelo" Property="Foreground" Value="{DynamicResource Ok}"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Nivel}" Value="depende">
+                                                        <Setter TargetName="Selo" Property="Background" Value="{DynamicResource AvisoSuave}"/>
+                                                        <Setter TargetName="TxtSelo" Property="Foreground" Value="{DynamicResource Aviso}"/>
+                                                    </DataTrigger>
+                                                </DataTemplate.Triggers>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock x:Name="TxtSegGuiaTitulo" Text="Só dá para desligar por dentro do programa" FontWeight="SemiBold" Margin="0,14,0,6" Visibility="Collapsed"/>
+                                    <ItemsControl x:Name="ListaSegGuia" ItemTemplate="{StaticResource ModeloSaude}"/>
+                                </StackPanel>
+                            </Border>
                             <Grid Margin="0,28,0,12">
                                 <TextBlock Text="Serviços que podem ser desligados" FontWeight="SemiBold" FontSize="16" VerticalAlignment="Center"/>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">

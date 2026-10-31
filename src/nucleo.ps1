@@ -248,9 +248,20 @@ function Set-EnergiaIndice([string]$Plano, [string]$Sub, [string]$Config, [int]$
 # ---------------------------------------------------------------
 $Script:NomesModoServico = @{ 'auto' = 'Automático'; 'delayed-auto' = 'Automático (atrasado)'; 'demand' = 'Manual'; 'disabled' = 'Desativado'; 'boot' = 'Boot'; 'system' = 'Sistema' }
 
+# Estado e PID de todos os serviços SEM WMI: o Win32_Service trava em alguns PCs
+# (visto num Dell G15 com utilitários de terceiros). Get-Service dá o estado e
+# "tasklist /svc" dá o PID de cada serviço (CSV: imagem, PID, serviços).
 function Get-ServicosCache {
     if (-not $Script:CacheSvc -or ((Get-Date) - $Script:CacheSvcData).TotalSeconds -gt 15) {
-        $Script:CacheSvc = @(Get-CimInstance Win32_Service -ErrorAction SilentlyContinue | Select-Object Name, State, ProcessId)
+        $pids = @{}
+        foreach ($l in @(tasklist.exe /svc /fo csv /nh 2>$null | ConvertFrom-Csv -Header Imagem, Pid, Servicos)) {
+            foreach ($n in ([string]$l.Servicos -split ',')) { $n = $n.Trim(); if ($n) { $pids[$n] = [int]$l.Pid } }
+        }
+        $lista = New-Object System.Collections.Generic.List[object]
+        foreach ($s in @(Get-Service -ErrorAction SilentlyContinue)) {
+            $lista.Add([pscustomobject]@{ Name = $s.Name; State = [string]$s.Status; ProcessId = [int]$pids[$s.Name] })
+        }
+        $Script:CacheSvc = $lista.ToArray()
         $Script:CacheSvcData = Get-Date
     }
     return $Script:CacheSvc

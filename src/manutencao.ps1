@@ -19,7 +19,7 @@ function Get-ArqConfigManut { return (Join-Path $Script:Otz.Dados 'manutencao.js
 
 function Get-ConfigManutencao {
     $arq = Get-ArqConfigManut
-    $padrao = [pscustomobject]@{ Frequencia = 'semanal'; Dia = 'Sunday'; Hora = '12:00'; Tarefas = @('temp', 'dns'); Verificar = $true }
+    $padrao = [pscustomobject]@{ Frequencia = 'semanal'; Dia = 'Sunday'; Hora = '12:00'; Tarefas = @('temp', 'dns'); Verificar = $true; Guardiao = $false }
     if (-not (Test-Path $arq)) { return $padrao }
     try { return ([IO.File]::ReadAllText($arq, [Text.Encoding]::UTF8) | ConvertFrom-Json) } catch { return $padrao }
 }
@@ -48,7 +48,7 @@ function Register-Manutencao($Config) {
     $ajustes = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 1)
     Register-ScheduledTask -TaskName $Script:NomeTarefaManut -TaskPath '\' -Action $acao -Trigger $gatilho -Principal $principal -Settings $ajustes `
         -Description 'Limpeza e verificação automáticas criadas pelo Otimizador Vinicius. Para remover, use o próprio otimizador (Ferramentas > Manutenção automática).' -Force | Out-Null
-    Write-Log "Manutenção agendada: $($Config.Frequencia) $($Config.Dia) $($Config.Hora) - tarefas: $(@($Config.Tarefas) -join ', ') - verificar: $($Config.Verificar)"
+    Write-Log "Manutenção agendada: $($Config.Frequencia) $($Config.Dia) $($Config.Hora) - tarefas: $(@($Config.Tarefas) -join ', ') - verificar: $($Config.Verificar) - guardião: $($Config.Guardiao)"
 }
 
 function Unregister-Manutencao {
@@ -74,6 +74,11 @@ function Invoke-ManutencaoAgendada([string]$ArqConfig) {
     $ids = @(@($cfg.Tarefas) | ForEach-Object { $Script:TarefasManut[[string]$_].Id } | Where-Object { $_ })
     $res = @()
     if ($ids.Count) { $res = @(Invoke-Plano -Ids $ids -Modo aplicar -CriarPonto $false) }
+    # Guardião: desliga de novo o que uma atualização religou na "Limpar o segundo plano"
+    if ($cfg.Guardiao -and (Get-Command Invoke-GuardiaoSegundoPlano -ErrorAction SilentlyContinue)) {
+        $refeitos = @(Invoke-GuardiaoSegundoPlano)
+        $res += [pscustomobject]@{ Nome = 'Guardião do segundo plano'; Status = 'ok'; Mensagem = $(if ($refeitos.Count) { "Desligou de novo: $($refeitos -join ', ')" } else { 'Nada tinha voltado.' }) }
+    }
     $nota = $null
     if ($cfg.Verificar) {
         $n = Measure-NotaPc

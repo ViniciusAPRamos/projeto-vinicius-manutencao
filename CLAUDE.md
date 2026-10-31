@@ -123,6 +123,7 @@
 
 ### 4.5 Limitações conhecidas
 
+- ✅ **Instalador validado (31/10/2026):** TechPulse 2.1.0.1 (canal teste) instalado e funcionando no notebook Dell G15 5530 de teste. Falta validar o ciclo de atualização (aviso no Início → Atualizar agora).
 - ⚠️ **v2.0: a aplicação real com administrador ainda não foi testada.** Testado sem admin no PC do Vinícius (Win11 25H2, build 26200, Ryzen 7 5700, 32 GB, RTX 5070): abertura, todas as telas, detecção, simulação, hardware, rede, inicialização e o motor de aplicar/desfazer numa chave isolada. Revisão da v1.1 em `docs/revisao-v1.1.md`.
 - O PC do Vinícius já tem a v1.1 aplicada em parte (plano "Vinicius - Desempenho Maximo" ativo, mouse sem aceleração etc.): 28 de 38 ajustes recomendados aparecem como "Aplicado". Esses não têm original guardado, então o "Desfazer" não age neles.
 - Se o usuário logado não for administrador e elevar com outra conta, as alterações em `HKCU` vão para a conta errada.

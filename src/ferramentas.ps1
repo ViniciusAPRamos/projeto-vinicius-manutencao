@@ -572,3 +572,114 @@ function Get-ListaWinget {
     }
     return $itens.ToArray()
 }
+
+# ===============================================================
+#  Espaço em disco: onde está o espaço e limpezas seguras
+# ===============================================================
+function Get-PastasCacheNavegador {
+    $la = $env:LOCALAPPDATA
+    $padroes = @(
+        "$la\Google\Chrome\User Data\*\Cache", "$la\Google\Chrome\User Data\*\Code Cache"
+        "$la\Microsoft\Edge\User Data\*\Cache", "$la\Microsoft\Edge\User Data\*\Code Cache"
+        "$la\Mozilla\Firefox\Profiles\*\cache2"
+    )
+    $pastas = New-Object System.Collections.Generic.List[string]
+    foreach ($p in $padroes) {
+        foreach ($r in @(Resolve-Path $p -ErrorAction SilentlyContinue)) { $pastas.Add($r.ProviderPath) }
+    }
+    return $pastas.ToArray()
+}
+
+function Get-NavegadoresAbertos {
+    $nomes = @{ chrome = 'Chrome'; msedge = 'Edge'; firefox = 'Firefox' }
+    return @($nomes.Keys | Where-Object { Get-Process -Name $_ -ErrorAction SilentlyContinue } | ForEach-Object { $nomes[$_] })
+}
+
+function Clear-CacheNavegadores {
+    $pastas = Get-PastasCacheNavegador
+    $antes = Get-TamanhoPastas $pastas
+    foreach ($p in $pastas) { Get-ChildItem $p -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue }
+    $liberado = [math]::Max(0, $antes - (Get-TamanhoPastas $pastas))
+    $abertos = Get-NavegadoresAbertos
+    $msg = "Liberados $(Format-Tamanho $liberado)."
+    if ($abertos) { return @{ Status = 'aviso'; Mensagem = "$msg Com $($abertos -join ', ') aberto(s), parte do cache ficou em uso. Feche e rode de novo para limpar tudo." } }
+    return @{ Status = 'ok'; Mensagem = $msg }
+}
+
+function Clear-CacheWindowsUpdate {
+    $pasta = "$env:SystemRoot\SoftwareDistribution\Download"
+    $antes = Get-TamanhoPastas @($pasta)
+    foreach ($s in 'wuauserv', 'bits') { Stop-Service -Name $s -Force -ErrorAction SilentlyContinue }
+    try {
+        Get-ChildItem $pasta -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    } finally {
+        foreach ($s in 'bits', 'wuauserv') { Start-Service -Name $s -ErrorAction SilentlyContinue }
+    }
+    $liberado = [math]::Max(0, $antes - (Get-TamanhoPastas @($pasta)))
+    return @{ Status = 'ok'; Mensagem = "Liberados $(Format-Tamanho $liberado). O Windows Update já voltou a funcionar." }
+}
+
+# Lugares que costumam ocupar espaço. Acao: abrir:<pasta> | item:<id do catálogo> | cleanmgr | info
+function Get-LocaisEspaco {
+    $u = $env:USERPROFILE
+    $l = New-Object System.Collections.Generic.List[object]
+    function Add-Local($nome, $pastas, $acao, $dica) { $l.Add([pscustomobject]@{ Nome = $nome; Pastas = @($pastas); Acao = $acao; Dica = $dica }) }
+    $pastaUsuario = { param($id, $padrao) $p = [Environment]::GetFolderPath($id); if (-not $p) { $p = Join-Path $u $padrao }; $p }
+    $down = (New-Object -ComObject Shell.Application).NameSpace('shell:Downloads').Self.Path
+    if (-not $down) { $down = Join-Path $u 'Downloads' }
+    Add-Local 'Downloads'               @($down) "abrir:$down" 'Instaladores e arquivos antigos costumam se acumular aqui.'
+    Add-Local 'Área de Trabalho'        @((& $pastaUsuario 'Desktop' 'Desktop')) "abrir:$((& $pastaUsuario 'Desktop' 'Desktop'))" 'Arquivos salvos direto na área de trabalho.'
+    Add-Local 'Documentos'              @((& $pastaUsuario 'MyDocuments' 'Documents')) "abrir:$((& $pastaUsuario 'MyDocuments' 'Documents'))" 'Seus documentos e, às vezes, saves de jogos.'
+    Add-Local 'Vídeos'                  @((& $pastaUsuario 'MyVideos' 'Videos')) "abrir:$((& $pastaUsuario 'MyVideos' 'Videos'))" 'Gravações de tela e de jogos ficam aqui.'
+    Add-Local 'Imagens'                 @((& $pastaUsuario 'MyPictures' 'Pictures')) "abrir:$((& $pastaUsuario 'MyPictures' 'Pictures'))" 'Fotos e capturas de tela.'
+    Add-Local 'Arquivos temporários'    @($env:TEMP, "$env:SystemRoot\Temp") 'item:limpeza.temp' 'Sobras de instalações. Pode limpar sem medo.'
+    Add-Local 'Cache dos navegadores'   (Get-PastasCacheNavegador) 'item:limpeza.navegadores' 'Cópias de sites visitados. Pode limpar; senhas e favoritos ficam.'
+    Add-Local 'Atualizações já baixadas' @("$env:SystemRoot\SoftwareDistribution\Download") 'item:limpeza.windows-update' 'Instaladores de atualizações do Windows.'
+    $old = Join-Path $env:SystemDrive 'Windows.old'
+    if (Test-Path $old) { Add-Local 'Windows antigo (Windows.old)' @($old) 'cleanmgr' 'Cópia do Windows anterior a uma atualização grande. Remova pela Limpeza de Disco > Limpar arquivos do sistema.' }
+    return $l.ToArray()
+}
+
+# Mede cada local e envia 'espaco' ao vivo; arquivos do sistema (hiberfil/pagefile) só informativo
+function Get-UsoEspaco {
+    $res = New-Object System.Collections.Generic.List[object]
+    foreach ($loc in Get-LocaisEspaco) {
+        $tam = Get-TamanhoPastas $loc.Pastas
+        $r = [pscustomobject]@{ Nome = $loc.Nome; Bytes = $tam; Acao = $loc.Acao; Dica = $loc.Dica }
+        Send-Evento @{ Tipo = 'espaco'; Local = $r }
+        $res.Add($r)
+    }
+    foreach ($sis in @(@{ N = 'Arquivo de hibernação (hiberfil.sys)'; A = 'hiberfil.sys'; D = 'Dá para remover desligando a hibernação (Otimizar > Sistema).' }, @{ N = 'Memória virtual (pagefile.sys)'; A = 'pagefile.sys'; D = 'Usado pelo Windows quando a RAM enche. Não apague.' })) {
+        $tam = 0
+        try { $tam = (Get-Item (Join-Path $env:SystemDrive $sis.A) -Force -ErrorAction Stop).Length } catch { }
+        if ($tam -gt 0) {
+            $acao = if ($sis.A -eq 'hiberfil.sys') { 'item:sistema.hibernacao' } else { 'info' }
+            $r = [pscustomobject]@{ Nome = $sis.N; Bytes = [double]$tam; Acao = $acao; Dica = $sis.D }
+            Send-Evento @{ Tipo = 'espaco'; Local = $r }
+            $res.Add($r)
+        }
+    }
+    return $res.ToArray()
+}
+
+# Maiores arquivos da pasta do usuário (só lê)
+function Get-ArquivosGrandes([int]$Quantidade = 15, [long]$MinBytes = 300MB) {
+    Send-Evento @{ Tipo = 'log'; Texto = "Procurando arquivos maiores que $(Format-Tamanho $MinBytes) em $env:USERPROFILE..." }
+    $achados = Get-ChildItem $env:USERPROFILE -Recurse -File -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.Length -ge $MinBytes } | Sort-Object Length -Descending | Select-Object -First $Quantidade
+    # Explica os tipos que mais aparecem e não são "seus arquivos"
+    $dicas = @(
+        @{ Re = '\\NVIDIA\\(DXCache|GLCache)|\.nvph$';       Txt = 'Cache de shaders da NVIDIA: o driver recria sozinho. Não apague à mão; use a Limpeza de Disco (Cache de sombreador DirectX).' }
+        @{ Re = 'D3DSCache|ushaderprecache|shadercache';      Txt = 'Cache de shaders de jogos/DirectX: acelera o carregamento. Pode ser recriado pelo jogo.' }
+        @{ Re = '\.(iso|img)$';                               Txt = 'Imagem de disco (instalador). Se já instalou, pode apagar.' }
+        @{ Re = '\.(exe|msi|zip|rar|7z)$';                    Txt = 'Instalador ou arquivo compactado. Se já usou, pode apagar.' }
+        @{ Re = '\.(mp4|mkv|mov|avi)$';                       Txt = 'Vídeo. Considere mover para um HD externo ou nuvem.' }
+        @{ Re = '\.(vhdx?|vmdk)$';                            Txt = 'Disco virtual (máquina virtual ou WSL). Não apague se usa a VM.' }
+        @{ Re = '\.(pst|ost)$';                               Txt = 'Arquivo de e-mails do Outlook. NÃO apague.' }
+    )
+    return @($achados | ForEach-Object {
+        $dica = ''
+        foreach ($d in $dicas) { if ($_.FullName -match $d.Re) { $dica = $d.Txt; break } }
+        [pscustomobject]@{ Nome = $_.Name; Pasta = $_.DirectoryName; Caminho = $_.FullName; Bytes = [double]$_.Length; Data = $_.LastWriteTime; Dica = $dica }
+    })
+}

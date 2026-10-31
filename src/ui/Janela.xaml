@@ -39,6 +39,9 @@
         <SolidColorBrush x:Key="Info" Color="#60A5FA"/>
         <SolidColorBrush x:Key="InfoSuave" Color="#2660A5FA"/>
         <SolidColorBrush x:Key="Scrim" Color="#A6000000"/>
+        <SolidColorBrush x:Key="Serie1" Color="#3987E5"/>
+        <SolidColorBrush x:Key="Serie2" Color="#D95926"/>
+        <SolidColorBrush x:Key="Grade" Color="#2A3140"/>
         <LinearGradientBrush x:Key="AcentoGrad" StartPoint="0,0" EndPoint="1,1">
             <GradientStop Color="#0D9488" Offset="0"/>
             <GradientStop Color="#2563EB" Offset="1"/>
@@ -1291,6 +1294,7 @@
                             <RadioButton x:Name="RbFerReparo" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE90F;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Reparar Windows"/></StackPanel></RadioButton>
                             <RadioButton x:Name="RbFerProgramas" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE896;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Programas"/></StackPanel></RadioButton>
                             <RadioButton x:Name="RbFerRelatorio" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE9D9;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Relatório do PC"/></StackPanel></RadioButton>
+                            <RadioButton x:Name="RbFerEspaco" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xEDA2;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Espaço em disco"/></StackPanel></RadioButton>
                             <RadioButton x:Name="RbFerProtecao" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72E;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Proteção (antivírus)"/></StackPanel></RadioButton>
                             <RadioButton x:Name="RbFerOffice" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8A5;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Desinstalar Office"/></StackPanel></RadioButton>
                             <RadioButton x:Name="RbFerAtalhos" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8A7;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Atalhos do Windows"/></StackPanel></RadioButton>
@@ -1694,6 +1698,77 @@
                                 </Border>
                             </ScrollViewer>
 
+                            <!-- Espaço em disco -->
+                            <ScrollViewer x:Name="FerEspaco" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <Border Style="{StaticResource Card}" Margin="0,0,0,14" Padding="22,18">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <Border Width="52" Height="52" CornerRadius="14" Background="{DynamicResource AcentoSuave}"><TextBlock Text="&#xEDA2;" Style="{StaticResource Icone}" FontSize="22" Foreground="{DynamicResource Acento}" HorizontalAlignment="Center"/></Border>
+                                            <StackPanel Grid.Column="1" Margin="16,0,16,0" VerticalAlignment="Center">
+                                                <TextBlock x:Name="TxtEspacoDisco" Text="Disco do sistema" FontFamily="{DynamicResource FonteTitulo}" FontSize="20" FontWeight="SemiBold"/>
+                                                <ProgressBar x:Name="BarraEspacoDisco" Style="{StaticResource Barra}" Maximum="100" Margin="0,10,0,6"/>
+                                                <TextBlock x:Name="TxtEspacoDiscoSub" Foreground="{DynamicResource TextoSec}" FontSize="13"/>
+                                            </StackPanel>
+                                            <Button x:Name="BtnEspacoAnalisar" Grid.Column="2" Style="{StaticResource BtnSecundario}" VerticalAlignment="Center">
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Analisar de novo"/></StackPanel>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                    <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                                        <StackPanel>
+                                            <TextBlock Text="Onde está o espaço" FontWeight="SemiBold" FontSize="15"/>
+                                            <TextBlock x:Name="TxtEspacoStatus" Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,4,0,10" Text="Medindo as pastas que mais costumam encher o disco..."/>
+                                            <ItemsControl x:Name="ListaEspaco">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,7">
+                                                            <Grid.ColumnDefinitions><ColumnDefinition Width="230"/><ColumnDefinition Width="*"/><ColumnDefinition Width="80"/><ColumnDefinition Width="110"/></Grid.ColumnDefinitions>
+                                                            <StackPanel VerticalAlignment="Center" ToolTip="{Binding Texto}">
+                                                                <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                                <TextBlock Text="{Binding Texto}" FontSize="11.5" Foreground="{DynamicResource TextoFraco}" TextTrimming="CharacterEllipsis"/>
+                                                            </StackPanel>
+                                                            <ProgressBar Grid.Column="1" Style="{StaticResource Barra}" Maximum="1" Value="{Binding Valor, Mode=OneWay}" VerticalAlignment="Center" Margin="12,0"/>
+                                                            <TextBlock Grid.Column="2" Text="{Binding Extra}" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                            <Button Grid.Column="3" Style="{StaticResource BtnLink}" Tag="{Binding Tag}" Content="{Binding Icone}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Style="{StaticResource Card}">
+                                        <StackPanel>
+                                            <Grid>
+                                                <StackPanel>
+                                                    <TextBlock Text="Maiores arquivos da sua pasta" FontWeight="SemiBold" FontSize="15"/>
+                                                    <TextBlock x:Name="TxtGrandesStatus" Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,4,0,0" Text="Procura arquivos acima de 300 MB na sua pasta de usuário. Só mostra; nada é apagado."/>
+                                                </StackPanel>
+                                                <Button x:Name="BtnGrandesProcurar" Style="{StaticResource BtnSecundario}" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE721;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Procurar"/></StackPanel>
+                                                </Button>
+                                            </Grid>
+                                            <ItemsControl x:Name="ListaGrandes" Margin="0,10,0,0">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,6">
+                                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="80"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                            <TextBlock Text="&#xE8A5;" Style="{StaticResource Icone}" Foreground="{DynamicResource Acento}" Margin="0,2,12,0" VerticalAlignment="Top"/>
+                                                            <StackPanel Grid.Column="1">
+                                                                <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                                <TextBlock Text="{Binding Tag}" FontSize="11.5" Foreground="{DynamicResource TextoFraco}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Tag}"/>
+                                                                <TextBlock Text="{Binding Texto}" FontSize="12" Foreground="{DynamicResource Info}" TextWrapping="Wrap" Visibility="{Binding TemTexto, Converter={StaticResource B2V}}"/>
+                                                            </StackPanel>
+                                                            <TextBlock Grid.Column="2" Text="{Binding Extra}" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Top"/>
+                                                            <Button Grid.Column="3" Style="{StaticResource BtnLink}" Tag="{Binding Tag}" Content="Mostrar na pasta" Margin="10,0,0,0" VerticalAlignment="Top"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
                             <!-- Proteção (antivírus) -->
                             <ScrollViewer x:Name="FerProtecao" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                                 <StackPanel>
@@ -1924,7 +1999,25 @@
                                     </StackPanel>
                                 </Border>
                             </Grid>
-                            <TextBlock x:Name="TxtVerSaudeTitulo" Style="{StaticResource Secao}" Text="Saúde do sistema" Visibility="Collapsed"/>
+                            <Border x:Name="PainelEvolucao" Style="{StaticResource Card}" Margin="0,16,0,0" Visibility="Collapsed">
+                                <StackPanel>
+                                    <Grid>
+                                        <TextBlock Text="Evolução da nota" FontWeight="SemiBold" FontSize="15"/>
+                                        <TextBlock x:Name="TxtEvolucaoResumo" HorizontalAlignment="Right" Foreground="{DynamicResource TextoSec}" FontSize="13"/>
+                                    </Grid>
+                                    <Grid Height="170" Margin="0,12,0,0">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="20"/></Grid.RowDefinitions>
+                                        <Canvas x:Name="EixoEvolucao" Grid.Row="0"/>
+                                        <Canvas x:Name="GraficoEvolucao" Grid.Column="1" Background="Transparent" ClipToBounds="False"/>
+                                        <Grid Grid.Row="1" Grid.Column="1">
+                                            <TextBlock x:Name="TxtEvolucaoIni" FontSize="11.5" Foreground="{DynamicResource TextoFraco}" HorizontalAlignment="Left" VerticalAlignment="Bottom"/>
+                                            <TextBlock x:Name="TxtEvolucaoFim" FontSize="11.5" Foreground="{DynamicResource TextoFraco}" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+                                        </Grid>
+                                    </Grid>
+                                    <TextBlock x:Name="TxtEvolucaoDica" Style="{StaticResource CorpoSec}" FontSize="12.5" Margin="0,8,0,0"/>
+                                </StackPanel>
+                            </Border>                            <TextBlock x:Name="TxtVerSaudeTitulo" Style="{StaticResource Secao}" Text="Saúde do sistema" Visibility="Collapsed"/>
                             <ItemsControl x:Name="ListaSaude" ItemTemplate="{StaticResource ModeloSaude}"/>
                         </StackPanel>
                     </ScrollViewer>

@@ -174,13 +174,13 @@ $Script:Paletas = @{
         Fundo = '#0E1117'; Palco = '#131720'; Superficie = '#1A1F29'; Superficie2 = '#232A36'; SuperficieHover = '#2B3341'; Borda = '#2A3140'
         Texto = '#E8ECF3'; TextoSec = '#9AA4B5'; TextoFraco = '#5D6778'; Acento = '#2DD4BF'; AcentoSuave = '#262DD4BF'; SobreAcento = '#04211D'
         Ok = '#34D399'; OkSuave = '#2634D399'; Aviso = '#FBBF24'; AvisoSuave = '#26FBBF24'; Erro = '#F87171'; ErroSuave = '#26F87171'
-        Info = '#60A5FA'; InfoSuave = '#2660A5FA'; Scrim = '#A6000000'
+        Info = '#60A5FA'; InfoSuave = '#2660A5FA'; Scrim = '#A6000000'; Serie1 = '#3987E5'; Serie2 = '#D95926'; Grade = '#2A3140'
     }
     claro = @{
         Fundo = '#E9EDF3'; Palco = '#F5F7FA'; Superficie = '#FFFFFF'; Superficie2 = '#EEF1F6'; SuperficieHover = '#E3E8EF'; Borda = '#DCE2EA'
         Texto = '#111827'; TextoSec = '#5B6474'; TextoFraco = '#9AA3B2'; Acento = '#0D9488'; AcentoSuave = '#1F0D9488'; SobreAcento = '#FFFFFF'
         Ok = '#059669'; OkSuave = '#1F059669'; Aviso = '#B45309'; AvisoSuave = '#1FB45309'; Erro = '#DC2626'; ErroSuave = '#1FDC2626'
-        Info = '#2563EB'; InfoSuave = '#1F2563EB'; Scrim = '#66000000'
+        Info = '#2563EB'; InfoSuave = '#1F2563EB'; Scrim = '#66000000'; Serie1 = '#2A78D6'; Serie2 = '#EB6834'; Grade = '#E3E8EF'
     }
 }
 
@@ -406,6 +406,7 @@ function Show-Pagina([string]$Pagina) {
         'PagVideo'       { if (-not $S.GpuCarregada) { Update-Gpu } }
         'PagNotebook'    { if (-not $S.BateriaCarregada) { Update-Bateria } }
         'PagServicos'    { Update-Ram }
+        'PagVerificar'   { Show-Evolucao }
         'PagFerramentas' { if (-not $S.FerCarregado.Count) { Show-Ferramenta 'RbFerRede' } }
     }
 }
@@ -985,6 +986,7 @@ function Complete-Execucao($Saida, $Erro) {
         Start-Deteccao
         if (@($okItens | Where-Object { $_.Id -like 'serv.*' }).Count) { Update-Ram -Comparar }
         if (@($okItens | Where-Object { $_.Id -like 'gpu.*' }).Count) { $S.GpuCarregada = $false }
+        if ($S.FerCarregado['FerEspaco'] -and @($okItens | Where-Object { $_.Id -like 'limpeza.*' -or $_.Id -eq 'sistema.hibernacao' }).Count) { Update-Espaco }
     }
 }
 
@@ -1051,7 +1053,7 @@ $UI.BtnDesfazerItem.Add_Click({
 $Script:FerPaineis = [ordered]@{
     RbFerRede = 'FerRede'; RbFerInicio = 'FerInicio'; RbFerServidor = 'FerServidor'; RbFerSerial = 'FerSerial'
     RbFerReparo = 'FerReparo'; RbFerProgramas = 'FerProgramas'; RbFerRelatorio = 'FerRelatorio'
-    RbFerProtecao = 'FerProtecao'; RbFerOffice = 'FerOffice'; RbFerAtalhos = 'FerAtalhos'
+    RbFerEspaco = 'FerEspaco'; RbFerProtecao = 'FerProtecao'; RbFerOffice = 'FerOffice'; RbFerAtalhos = 'FerAtalhos'
 }
 
 function Show-Ferramenta([string]$Rb) {
@@ -1067,6 +1069,7 @@ function Show-Ferramenta([string]$Rb) {
             'FerInicio'    { Update-Inicio }
             'FerSerial'    { Update-Serial }
             'FerProgramas' { Initialize-Winget }
+            'FerEspaco'    { Update-Espaco }
             'FerProtecao'  { Update-Protecao }
             'FerOffice'    { Update-Office }
             'FerAtalhos'   { Initialize-Atalhos }
@@ -1994,6 +1997,9 @@ function Complete-Verificacao {
         $UI.BtnVerAplicarFaltam.Visibility = 'Collapsed'
     }
     Show-Entrada $UI.PainelVerResumo
+    $aplic = @($base | Where-Object Estado -eq 'aplicado').Count
+    try { Save-Verificacao $nota "$aplic/$($base.Count)" $problemas 'manual' } catch { Write-Log "Não foi possível salvar a verificação: $($_.Exception.Message)" }
+    Show-Evolucao
 }
 
 $S.TimerVer = New-Object Windows.Threading.DispatcherTimer
@@ -2025,6 +2031,136 @@ $UI.ListaSaude.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, 
         }
     } catch { Show-Toast "Não foi possível abrir: $($_.Exception.Message)" 'erro' }
 })
+
+# ---------------- Espaço em disco ----------------
+function Update-Espaco {
+    $vol = Get-Volume -DriveLetter $env:SystemDrive.Substring(0, 1) -ErrorAction SilentlyContinue
+    if ($vol -and $vol.Size) {
+        $usado = [double]$vol.Size - [double]$vol.SizeRemaining
+        $pct = [math]::Round(100 * $usado / $vol.Size)
+        $UI.TxtEspacoDisco.Text = "Disco $($env:SystemDrive)  ·  $(Format-Tamanho $vol.SizeRemaining) livres"
+        $UI.TxtEspacoDiscoSub.Text = "$(Format-Tamanho $usado) usados de $(Format-Tamanho $vol.Size) ($pct%). " + $(if ($pct -ge 85) { 'Acima de 85% o Windows fica lento: vale liberar espaço.' } else { 'Espaço sob controle.' })
+        Start-Animacao $UI.BarraEspacoDisco ([Windows.Controls.Primitives.RangeBase]::ValueProperty) 0 $pct 700
+    }
+    $S.EspacoDados = New-Object System.Collections.Generic.List[object]
+    $UI.ListaEspaco.ItemsSource = $null
+    $UI.TxtEspacoStatus.Text = 'Medindo as pastas que mais costumam encher o disco...'
+    $UI.BtnEspacoAnalisar.IsEnabled = $false
+    Start-Tarefa -Nome 'espaco' -Script 'Get-UsoEspaco | Out-Null' -AoEvento {
+        param($ev)
+        if ($ev.Tipo -ne 'espaco') { return }
+        $S.EspacoDados.Add($ev.Local)
+        Show-ListaEspaco
+    } -AoTerminar {
+        $UI.BtnEspacoAnalisar.IsEnabled = $true
+        $total = ($S.EspacoDados | Measure-Object Bytes -Sum).Sum
+        $limpavel = (@($S.EspacoDados | Where-Object { $_.Acao -like 'item:limpeza.*' }) | Measure-Object Bytes -Sum).Sum
+        $UI.TxtEspacoStatus.Text = "Somando tudo: $(Format-Tamanho $total). Dá para liberar cerca de $(Format-Tamanho $limpavel) com as limpezas seguras (botão Limpar)."
+    }
+}
+
+function Show-ListaEspaco {
+    $ordenado = @($S.EspacoDados | Sort-Object Bytes -Descending)
+    $max = [double](@($ordenado)[0].Bytes); if ($max -le 0) { $max = 1 }
+    $rotulo = { param($a) if ($a -like 'abrir:*') { 'Abrir pasta' } elseif ($a -like 'item:*') { 'Limpar' } elseif ($a -eq 'cleanmgr') { 'Limpeza de Disco' } else { '' } }
+    $UI.ListaEspaco.ItemsSource = ConvertTo-Linhas @($ordenado | ForEach-Object {
+        New-Linha -Titulo $_.Nome -Texto $_.Dica -Extra (Format-Tamanho $_.Bytes) -Tag $_.Acao -Icone (& $rotulo $_.Acao) -Valor ($_.Bytes / $max)
+    })
+}
+
+$UI.BtnEspacoAnalisar.Add_Click({ Update-Espaco })
+$UI.ListaEspaco.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Windows.RoutedEventHandler]{
+    param($origem, $e)
+    $acao = [string]$e.OriginalSource.Tag
+    if ($acao -like 'abrir:*') { Start-Process explorer.exe "`"$($acao.Substring(6))`"" }
+    elseif ($acao -like 'item:*') {
+        $a = $S.PorId[$acao.Substring(5)]
+        if (-not $a) { return }
+        if (-not $a.Habilitado) { Show-Toast $a.Motivo 'info'; return }
+        Request-Aplicar @($a)
+    }
+    elseif ($acao -eq 'cleanmgr') { Start-Process cleanmgr.exe; Show-Toast 'Na Limpeza de Disco, clique em "Limpar arquivos do sistema" e marque "Instalações anteriores do Windows".' 'info' }
+})
+
+$UI.BtnGrandesProcurar.Add_Click({
+    $UI.BtnGrandesProcurar.IsEnabled = $false
+    $UI.TxtGrandesStatus.Text = 'Procurando... pode levar até um minuto em pastas grandes.'
+    Start-Tarefa -Nome 'grandes' -Script 'Get-ArquivosGrandes' -AoTerminar {
+        param($saida, $erro)
+        $UI.BtnGrandesProcurar.IsEnabled = $true
+        $lista = @($saida | Where-Object { $_ -and $_.Caminho })
+        $UI.ListaGrandes.ItemsSource = ConvertTo-Linhas @($lista | ForEach-Object { New-Linha -Titulo $_.Nome -Tag $_.Caminho -Extra (Format-Tamanho $_.Bytes) -Texto $_.Dica })
+        $UI.TxtGrandesStatus.Text = if ($lista.Count) { "$($lista.Count) arquivo(s) acima de 300 MB. A linha azul explica o que é, quando dá para saber. Nada foi apagado." } else { 'Nenhum arquivo acima de 300 MB na sua pasta.' }
+    }
+})
+$UI.ListaGrandes.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Windows.RoutedEventHandler]{
+    param($origem, $e)
+    $c = [string]$e.OriginalSource.Tag
+    if ($c) { Start-Process explorer.exe "/select,`"$c`"" }
+})
+
+# ---------------- Evolução da nota (gráfico de linha, uma série) ----------------
+function Show-Evolucao {
+    $h = @(Get-Verificacoes 30)
+    if ($h.Count -eq 0) { $UI.PainelEvolucao.Visibility = 'Collapsed'; return }
+    $UI.PainelEvolucao.Visibility = 'Visible'
+    $cv = $UI.GraficoEvolucao; $eixo = $UI.EixoEvolucao
+    $w = $cv.ActualWidth; $alt = $cv.ActualHeight
+    if ($w -lt 20 -or $alt -lt 20) { return }   # redesenha no SizeChanged
+    $cv.Children.Clear(); $eixo.Children.Clear()
+    $topo = 8.0; $base = $alt - 8.0
+    $y = { param($nota) $topo + (1 - [double]$nota / 100) * ($base - $topo) }
+
+    # Grade recessiva + rótulos do eixo (texto em cor de texto, nunca a da série)
+    foreach ($v in 0, 50, 100) {
+        $ln = [Windows.Shapes.Line]::new(); $ln.X1 = 0; $ln.X2 = $w; $ln.Y1 = (& $y $v); $ln.Y2 = $ln.Y1; $ln.StrokeThickness = 1
+        Set-Referencia $ln ([Windows.Shapes.Shape]::StrokeProperty) 'Grade'
+        [void]$cv.Children.Add($ln)
+        $tb = [Windows.Controls.TextBlock]::new(); $tb.Text = [string]$v; $tb.FontSize = 11; $tb.Width = 28; $tb.TextAlignment = 'Right'
+        Set-Referencia $tb ([Windows.Controls.TextBlock]::ForegroundProperty) 'TextoFraco'
+        [Windows.Controls.Canvas]::SetTop($tb, (& $y $v) - 8); [void]$eixo.Children.Add($tb)
+    }
+
+    $n = $h.Count; $pad = 10.0
+    $xs = @(for ($i = 0; $i -lt $n; $i++) { if ($n -eq 1) { $w / 2 } else { $pad + $i * ($w - 2 * $pad) / ($n - 1) } })
+    if ($n -gt 1) {
+        $pl = [Windows.Shapes.Polyline]::new(); $pl.StrokeThickness = 2; $pl.StrokeLineJoin = 'Round'
+        Set-Referencia $pl ([Windows.Shapes.Shape]::StrokeProperty) 'Serie1'
+        for ($i = 0; $i -lt $n; $i++) { [void]$pl.Points.Add([Windows.Point]::new($xs[$i], (& $y $h[$i].Nota))) }
+        [void]$cv.Children.Add($pl)
+    }
+    for ($i = 0; $i -lt $n; $i++) {
+        $d = $h[$i]
+        $data = try { ([datetime]::Parse($d.Data, [Globalization.CultureInfo]::InvariantCulture)).ToString('dd/MM HH:mm') } catch { $d.Data }
+        # Alvo de mouse maior que a marca (20 px), com dica
+        $alvo = [Windows.Controls.Grid]::new(); $alvo.Width = 20; $alvo.Height = 20; $alvo.Background = [Windows.Media.Brushes]::Transparent
+        $alvo.ToolTip = "$data  ·  nota $($d.Nota)  ·  ajustes $($d.Ajustes)  ·  $($d.Problemas) problema(s)  ·  $($d.Origem)"
+        $m = [Windows.Shapes.Ellipse]::new(); $m.Width = 10; $m.Height = 10; $m.StrokeThickness = 2
+        Set-Referencia $m ([Windows.Shapes.Shape]::FillProperty) 'Serie1'
+        Set-Referencia $m ([Windows.Shapes.Shape]::StrokeProperty) 'Superficie'
+        [void]$alvo.Children.Add($m)
+        [Windows.Controls.Canvas]::SetLeft($alvo, $xs[$i] - 10); [Windows.Controls.Canvas]::SetTop($alvo, (& $y $d.Nota) - 10)
+        [void]$cv.Children.Add($alvo)
+    }
+    # Rótulo direto só no último ponto
+    $ult = $h[$n - 1]
+    $lbl = [Windows.Controls.TextBlock]::new(); $lbl.Text = [string]$ult.Nota; $lbl.FontWeight = 'SemiBold'; $lbl.FontSize = 12.5
+    Set-Referencia $lbl ([Windows.Controls.TextBlock]::ForegroundProperty) 'Texto'
+    [Windows.Controls.Canvas]::SetLeft($lbl, [math]::Min($w - 22, $xs[$n - 1] - 8)); [Windows.Controls.Canvas]::SetTop($lbl, [math]::Max(-6, (& $y $ult.Nota) - 26))
+    [void]$cv.Children.Add($lbl)
+
+    $fmt = { param($s) try { ([datetime]::Parse($s, [Globalization.CultureInfo]::InvariantCulture)).ToString('dd/MM/yyyy') } catch { $s } }
+    $UI.TxtEvolucaoIni.Text = & $fmt $h[0].Data
+    $UI.TxtEvolucaoFim.Text = if ($n -gt 1) { & $fmt $ult.Data } else { '' }
+    if ($n -gt 1) {
+        $dif = [int]$ult.Nota - [int]$h[0].Nota
+        $sinal = if ($dif -gt 0) { "+$dif" } else { "$dif" }
+        $UI.TxtEvolucaoResumo.Text = "Primeira: $($h[0].Nota)  →  agora: $($ult.Nota)  ($sinal)"
+    } else { $UI.TxtEvolucaoResumo.Text = "Nota atual: $($ult.Nota)" }
+    $UI.TxtEvolucaoDica.Text = if ($n -eq 1) { 'Este é o primeiro ponto. Verifique de novo depois de otimizar (ou ligue a manutenção automática) para ver a evolução.' }
+                               else { "$n verificações. Passe o mouse nos pontos para ver os detalhes. A manutenção automática também adiciona pontos." }
+}
+$UI.GraficoEvolucao.Add_SizeChanged({ if ($UI.PainelEvolucao.Visibility -eq 'Visible') { Show-Evolucao } })
 
 # ===============================================================
 #  Histórico
@@ -2227,6 +2363,18 @@ if ($Captura) {
         { Set-ModoAvancado $false; $UI.ChkAvancado.IsChecked = $false; Open-Pagina 'NavAjuda' }
         { $UI.PagAjuda.ScrollToEnd() }
         { Save-Captura '24-glossario' }
+        { Open-Pagina 'NavFerramentas'; Show-Ferramenta 'RbFerEspaco' }
+        { }
+        { }
+        { Save-Captura '25-espaco' }
+        { Open-Pagina 'NavVerificar' }
+        { $UI.PagVerificar.ScrollToVerticalOffset(470) }
+        { Save-Captura '26-evolucao' }
+        { $S.DadosReais = $Otz.Dados; $Otz.Dados = 'C:\Users\vinic\AppData\Local\Temp\claude\c--Users-vinic-Documents-Programa--o-Otimizador-PC\fb12e4dc-9795-4a02-a9c5-2b76d0b2166e\scratchpad\dados-teste'; Show-Evolucao }
+        { Save-Captura '27-evolucao-varios' }
+        { Set-Tema 'claro'; Show-Evolucao }
+        { Save-Captura '28-evolucao-claro' }
+        { Set-Tema 'escuro'; $Otz.Dados = $S.DadosReais }
         { Open-Pagina 'NavHistorico' }
         { Save-Captura '7-historico' }
         { Open-Pagina 'NavAjuda' }

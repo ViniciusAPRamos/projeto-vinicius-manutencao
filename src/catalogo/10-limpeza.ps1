@@ -76,4 +76,47 @@ $semDesfazer = 'Ação única, não tem desfazer. São arquivos que os programas
             return @{ Status = 'ok'; Mensagem = 'Lixeira esvaziada.' }
         }
     }
+    @{
+        Id           = 'limpeza.navegadores'
+        Categoria    = $cat
+        Tipo         = 'acao'
+        Nome         = 'Limpar cache dos navegadores'
+        Resumo       = 'Apaga os arquivos temporários de sites do Chrome, Edge e Firefox. Senhas, favoritos e histórico ficam.'
+        Detalhe      = 'Remove só as pastas de cache (cópias de imagens e scripts de sites já visitados). Não mexe em senhas, favoritos, histórico, extensões nem em contas logadas.'
+        Indicado     = 'Quando o disco está cheio ou um site insiste em mostrar uma versão antiga.'
+        Atencao      = 'Feche os navegadores antes: com eles abertos, parte do cache fica em uso e é pulada. Na primeira visita, os sites podem abrir um pouco mais devagar.'
+        Risco        = 'seguro'
+        Perfis       = @()
+        ComoDesfazer = 'Ação única. O navegador recria o cache sozinho enquanto você navega.'
+        Tecnico      = "Apaga o conteúdo de:`n%LOCALAPPDATA%\Google\Chrome\User Data\*\Cache e Code Cache`n%LOCALAPPDATA%\Microsoft\Edge\User Data\*\Cache e Code Cache`n%LOCALAPPDATA%\Mozilla\Firefox\Profiles\*\cache2"
+        Detectar     = {
+            $t = Get-TamanhoPastas (Get-PastasCacheNavegador)
+            return @{ Estado = 'acao'; Texto = "cerca de $(Format-Tamanho $t) em cache" }
+        }
+        Simular      = {
+            $abertos = Get-NavegadoresAbertos
+            "→ Apagaria até $(Format-Tamanho (Get-TamanhoPastas (Get-PastasCacheNavegador))) de cache"
+            if ($abertos) { "⚠ Abertos agora: $($abertos -join ', '). Feche antes para limpar tudo." }
+        }
+        Aplicar      = { return (Clear-CacheNavegadores) }
+    }
+    @{
+        Id           = 'limpeza.windows-update'
+        Categoria    = $cat
+        Tipo         = 'acao'
+        Nome         = 'Apagar atualizações do Windows já baixadas'
+        Resumo       = 'Remove os instaladores de atualizações que o Windows já baixou. Costuma liberar alguns GB.'
+        Detalhe      = 'Para o Windows Update por alguns segundos, apaga o conteúdo de C:\Windows\SoftwareDistribution\Download e liga o serviço de novo. Se ainda faltar alguma atualização, o Windows baixa de novo.'
+        Indicado     = 'Disco cheio, ou atualização que fica "presa" baixando.'
+        Atencao      = 'Não use enquanto uma atualização estiver instalando (tela "Trabalhando nas atualizações" ou reinício pendente).'
+        Risco        = 'seguro'
+        Perfis       = @()
+        ComoDesfazer = 'Ação única. O Windows baixa de novo o que precisar.'
+        Tecnico      = "Stop-Service wuauserv, bits`nRemove-Item C:\Windows\SoftwareDistribution\Download\*`nStart-Service wuauserv, bits"
+        Detectar     = {
+            $t = Get-TamanhoPastas @("$env:SystemRoot\SoftwareDistribution\Download")
+            return @{ Estado = 'acao'; Texto = "cerca de $(Format-Tamanho $t) baixados" }
+        }
+        Aplicar      = { return (Clear-CacheWindowsUpdate) }
+    }
 )

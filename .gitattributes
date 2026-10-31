@@ -1,0 +1,11 @@
+# PowerShell 5.1 e cmd precisam de CRLF; o BOM do .ps1 é preservado pelo Git
+* text=auto
+*.ps1  text eol=crlf
+*.psm1 text eol=crlf
+*.psd1 text eol=crlf
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.xaml text eol=crlf
+*.txt  text eol=crlf
+*.md   text eol=crlf
+*.json text eol=crlf

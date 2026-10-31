@@ -1,0 +1,15 @@
+# Lista pessoal de programas (o modelo fica em config/)
+winget-lista.txt
+
+# Saídas geradas pelo script (normalmente ficam em Documentos\OtimizadorVinicius)
+Backups/
+*.reg
+log_*.txt
+Relatorio_PC_*.html
+winget-programas.json
+
+# Editor / sistema
+.vscode/
+*.code-workspace
+Thumbs.db
+desktop.ini

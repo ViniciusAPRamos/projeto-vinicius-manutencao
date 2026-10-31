@@ -1,0 +1,9 @@
+# Lista personalizada de programas (opcional)
+# Formato: Id do winget;Nome
+# Para achar o Id: winget search nome-do-programa
+Google.Chrome;Google Chrome
+7zip.7zip;7-Zip
+Notepad++.Notepad++;Notepad++
+AnyDesk.AnyDesk;AnyDesk
+PuTTY.PuTTY;PuTTY
+WiresharkFoundation.Wireshark;Wireshark

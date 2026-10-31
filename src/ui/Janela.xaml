@@ -1294,6 +1294,8 @@
                             <RadioButton x:Name="RbFerReparo" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE90F;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Reparar Windows"/></StackPanel></RadioButton>
                             <RadioButton x:Name="RbFerProgramas" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE896;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Programas"/></StackPanel></RadioButton>
                             <RadioButton x:Name="RbFerRelatorio" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE9D9;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Relatório do PC"/></StackPanel></RadioButton>
+                            <RadioButton x:Name="RbFerMonitor" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE9D9;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Monitor de conexão"/></StackPanel></RadioButton>
+                            <RadioButton x:Name="RbFerManut" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE81C;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Manutenção automática"/></StackPanel></RadioButton>
                             <RadioButton x:Name="RbFerEspaco" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xEDA2;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Espaço em disco"/></StackPanel></RadioButton>
                             <RadioButton x:Name="RbFerProtecao" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72E;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Proteção (antivírus)"/></StackPanel></RadioButton>
                             <RadioButton x:Name="RbFerOffice" Style="{StaticResource Pill}" GroupName="fer"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8A5;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Desinstalar Office"/></StackPanel></RadioButton>
@@ -1698,6 +1700,174 @@
                                 </Border>
                             </ScrollViewer>
 
+                            <!-- Monitor de conexão -->
+                            <ScrollViewer x:Name="FerMonitor" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                                        <StackPanel>
+                                            <TextBlock Text="A internet está caindo? Descubra onde" FontWeight="SemiBold" FontSize="15"/>
+                                            <TextBlock Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,4,0,12" Text="Mede a cada segundo o tempo de resposta do seu roteador e de um servidor na internet, lado a lado. Se o problema aparece já no roteador, é Wi-Fi, cabo ou placa de rede. Se só a internet falha, é com o provedor."/>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Internet:" VerticalAlignment="Center" Foreground="{DynamicResource TextoSec}" Margin="0,0,10,0"/>
+                                                <WrapPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <RadioButton x:Name="RbMonCloudflare" Style="{StaticResource Pill}" GroupName="mon" Tag="1.1.1.1" Content="Cloudflare 1.1.1.1" IsChecked="True" Margin="0,0,8,0"/>
+                                                    <RadioButton x:Name="RbMonGoogle" Style="{StaticResource Pill}" GroupName="mon" Tag="8.8.8.8" Content="Google 8.8.8.8" Margin="0,0,8,0"/>
+                                                    <RadioButton x:Name="RbMonOutro" Style="{StaticResource Pill}" GroupName="mon" Tag="" Content="Meu servidor" Margin="0,0,8,0"/>
+                                                    <TextBox x:Name="TxtMonOutro" Style="{StaticResource Campo}" Width="220" Tag="ex.: api.empresa.com.br" Padding="10,6" Visibility="Collapsed"/>
+                                                </WrapPanel>
+                                                <Button x:Name="BtnMonitor" Grid.Column="2" Style="{StaticResource BtnPrimario}">
+                                                    <StackPanel Orientation="Horizontal"><TextBlock x:Name="IcoMonitor" Text="&#xE768;" Style="{StaticResource IconeBtn}"/><TextBlock x:Name="TxtBtnMonitor" Text="Começar"/></StackPanel>
+                                                </Button>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+                                    <Grid Margin="0,0,0,14">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <Border Style="{StaticResource Card}" Padding="18,14">
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Rectangle Width="16" Height="3" RadiusX="1.5" RadiusY="1.5" Fill="{DynamicResource Serie1}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBlock x:Name="TxtMonRoteadorNome" Text="Roteador" FontWeight="SemiBold"/>
+                                                </StackPanel>
+                                                <TextBlock x:Name="TxtMonRoteadorAtual" Text="– ms" FontFamily="{DynamicResource FonteTitulo}" FontSize="26" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                                                <TextBlock x:Name="TxtMonRoteadorStats" Text="média – · perda – · variação –" Foreground="{DynamicResource TextoSec}" FontSize="12.5"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Grid.Column="2" Style="{StaticResource Card}" Padding="18,14">
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Rectangle Width="16" Height="3" RadiusX="1.5" RadiusY="1.5" Fill="{DynamicResource Serie2}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBlock x:Name="TxtMonInternetNome" Text="Internet" FontWeight="SemiBold"/>
+                                                </StackPanel>
+                                                <TextBlock x:Name="TxtMonInternetAtual" Text="– ms" FontFamily="{DynamicResource FonteTitulo}" FontSize="26" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                                                <TextBlock x:Name="TxtMonInternetStats" Text="média – · perda – · variação –" Foreground="{DynamicResource TextoSec}" FontSize="12.5"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+                                    <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                                        <StackPanel>
+                                            <Grid>
+                                                <TextBlock Text="Tempo de resposta (ms) - últimos 60 segundos" FontWeight="SemiBold"/>
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                    <Rectangle Width="14" Height="3" Fill="{DynamicResource Serie1}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                    <TextBlock Text="Roteador" FontSize="12.5" Foreground="{DynamicResource TextoSec}" Margin="0,0,14,0"/>
+                                                    <Rectangle Width="14" Height="3" Fill="{DynamicResource Serie2}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                    <TextBlock Text="Internet" FontSize="12.5" Foreground="{DynamicResource TextoSec}" Margin="0,0,14,0"/>
+                                                    <TextBlock Text="&#xE711;" Style="{StaticResource Icone}" FontSize="10" Foreground="{DynamicResource Erro}" Margin="0,0,6,0"/>
+                                                    <TextBlock Text="sem resposta" FontSize="12.5" Foreground="{DynamicResource TextoSec}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                            <Grid Height="190" Margin="0,12,0,0">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <Canvas x:Name="EixoMonitor"/>
+                                                <Canvas x:Name="GraficoMonitor" Grid.Column="1" Background="Transparent"/>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border x:Name="CardMonDiag" Background="{DynamicResource InfoSuave}" CornerRadius="12" Padding="16,12">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <TextBlock x:Name="IcoMonDiag" Text="&#xE946;" Style="{StaticResource Icone}" FontSize="16" Foreground="{DynamicResource Info}" VerticalAlignment="Top" Margin="0,2,12,0"/>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock x:Name="TxtMonDiagTitulo" Text="Diagnóstico" FontWeight="SemiBold"/>
+                                                <TextBlock x:Name="TxtMonDiag" Style="{StaticResource Corpo}" FontSize="13" Text="Clique em Começar e deixe rodar pelo menos 30 segundos (de preferência enquanto o problema acontece)."/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
+
+                            <!-- Manutenção automática -->
+                            <ScrollViewer x:Name="FerManut" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <Border Style="{StaticResource Card}" Margin="0,0,0,14" Padding="22,18">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <Border x:Name="CirculoManut" Width="52" Height="52" CornerRadius="14" Background="{DynamicResource Superficie2}">
+                                                <TextBlock x:Name="IcoManut" Text="&#xE81C;" Style="{StaticResource Icone}" FontSize="22" Foreground="{DynamicResource TextoSec}" HorizontalAlignment="Center"/>
+                                            </Border>
+                                            <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                                                <TextBlock x:Name="TxtManutTitulo" Text="Manutenção automática desligada" FontFamily="{DynamicResource FonteTitulo}" FontSize="20" FontWeight="SemiBold"/>
+                                                <TextBlock x:Name="TxtManutDetalhe" Foreground="{DynamicResource TextoSec}" Margin="0,2,0,0" TextWrapping="Wrap" Text="Limpa o PC e verifica a saúde sozinho, no dia e hora que você escolher."/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <Border Style="{StaticResource Card}">
+                                            <StackPanel>
+                                                <TextBlock Text="Quando" FontWeight="SemiBold" FontSize="15" Margin="0,0,0,10"/>
+                                                <Border Background="{DynamicResource Superficie2}" CornerRadius="10" Padding="3" HorizontalAlignment="Left">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <RadioButton x:Name="RbManutSemanal" Style="{StaticResource Segmento}" GroupName="manfreq" Content="Toda semana" IsChecked="True"/>
+                                                        <RadioButton x:Name="RbManutDiaria" Style="{StaticResource Segmento}" GroupName="manfreq" Content="Todo dia"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                                    <StackPanel x:Name="PainelManutDia" Margin="0,0,16,0">
+                                                        <TextBlock Style="{StaticResource Rotulo}" Text="DIA"/>
+                                                        <ComboBox x:Name="CbManutDia" Width="150" SelectedIndex="0">
+                                                            <ComboBoxItem Content="Domingo" Tag="Sunday"/>
+                                                            <ComboBoxItem Content="Segunda-feira" Tag="Monday"/>
+                                                            <ComboBoxItem Content="Terça-feira" Tag="Tuesday"/>
+                                                            <ComboBoxItem Content="Quarta-feira" Tag="Wednesday"/>
+                                                            <ComboBoxItem Content="Quinta-feira" Tag="Thursday"/>
+                                                            <ComboBoxItem Content="Sexta-feira" Tag="Friday"/>
+                                                            <ComboBoxItem Content="Sábado" Tag="Saturday"/>
+                                                        </ComboBox>
+                                                    </StackPanel>
+                                                    <StackPanel>
+                                                        <TextBlock Style="{StaticResource Rotulo}" Text="HORA"/>
+                                                        <ComboBox x:Name="CbManutHora" Width="100"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                                <TextBlock Style="{StaticResource CorpoSec}" FontSize="12.5" Margin="0,12,0,0" Text="Roda escondida, sem atrapalhar, e só com você logado. Se o PC estiver desligado no horário, roda assim que ele ligar."/>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Grid.Column="2" Style="{StaticResource Card}">
+                                            <StackPanel>
+                                                <TextBlock Text="O que fazer" FontWeight="SemiBold" FontSize="15" Margin="0,0,0,10"/>
+                                                <CheckBox x:Name="ChkManutTemp" Style="{StaticResource Caixa}" Content="Apagar arquivos temporários" IsChecked="True" Margin="0,4"/>
+                                                <CheckBox x:Name="ChkManutDns" Style="{StaticResource Caixa}" Content="Limpar cache de DNS" IsChecked="True" Margin="0,4"/>
+                                                <CheckBox x:Name="ChkManutLixeira" Style="{StaticResource Caixa}" Content="Esvaziar a Lixeira (apaga para sempre)" Margin="0,4"/>
+                                                <CheckBox x:Name="ChkManutVerificar" Style="{StaticResource Caixa}" Content="Verificar o PC e guardar a nota (gráfico de evolução)" IsChecked="True" Margin="0,4"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+                                    <WrapPanel Margin="0,14,0,14">
+                                        <Button x:Name="BtnManutAtivar" Style="{StaticResource BtnPrimario}" Margin="0,0,10,0">
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE73E;" Style="{StaticResource IconeBtn}"/><TextBlock x:Name="TxtBtnManutAtivar" Text="Ligar manutenção"/></StackPanel>
+                                        </Button>
+                                        <Button x:Name="BtnManutAgora" Style="{StaticResource BtnSecundario}" Margin="0,0,10,0">
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE768;" Style="{StaticResource IconeBtn}"/><TextBlock Text="Rodar agora"/></StackPanel>
+                                        </Button>
+                                        <Button x:Name="BtnManutDesligar" Style="{StaticResource BtnFantasma}" Visibility="Collapsed">
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE711;" Style="{StaticResource IconeBtn}" FontSize="11"/><TextBlock Text="Desligar"/></StackPanel>
+                                        </Button>
+                                    </WrapPanel>
+                                    <Border Style="{StaticResource Card}">
+                                        <StackPanel>
+                                            <TextBlock Text="Última execução" FontWeight="SemiBold" FontSize="15"/>
+                                            <TextBlock x:Name="TxtManutUltima" Style="{StaticResource CorpoSec}" FontSize="13" Margin="0,4,0,8" Text="Ainda não rodou."/>
+                                            <ItemsControl x:Name="ListaManutUltima">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,3">
+                                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                            <TextBlock Style="{StaticResource IconeNivel}" FontSize="13" Margin="0,2,10,0" VerticalAlignment="Top"/>
+                                                            <StackPanel Grid.Column="1">
+                                                                <TextBlock Text="{Binding Titulo}"/>
+                                                                <TextBlock Text="{Binding Texto}" FontSize="12" Foreground="{DynamicResource TextoSec}" TextWrapping="Wrap" Visibility="{Binding TemTexto, Converter={StaticResource B2V}}"/>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
                             <!-- Espaço em disco -->
                             <ScrollViewer x:Name="FerEspaco" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                                 <StackPanel>

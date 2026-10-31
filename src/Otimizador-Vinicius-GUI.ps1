@@ -1053,7 +1053,7 @@ $UI.BtnDesfazerItem.Add_Click({
 $Script:FerPaineis = [ordered]@{
     RbFerRede = 'FerRede'; RbFerInicio = 'FerInicio'; RbFerServidor = 'FerServidor'; RbFerSerial = 'FerSerial'
     RbFerReparo = 'FerReparo'; RbFerProgramas = 'FerProgramas'; RbFerRelatorio = 'FerRelatorio'
-    RbFerEspaco = 'FerEspaco'; RbFerProtecao = 'FerProtecao'; RbFerOffice = 'FerOffice'; RbFerAtalhos = 'FerAtalhos'
+    RbFerMonitor = 'FerMonitor'; RbFerManut = 'FerManut'; RbFerEspaco = 'FerEspaco'; RbFerProtecao = 'FerProtecao'; RbFerOffice = 'FerOffice'; RbFerAtalhos = 'FerAtalhos'
 }
 
 function Show-Ferramenta([string]$Rb) {
@@ -1070,6 +1070,7 @@ function Show-Ferramenta([string]$Rb) {
             'FerSerial'    { Update-Serial }
             'FerProgramas' { Initialize-Winget }
             'FerEspaco'    { Update-Espaco }
+            'FerManut'     { Initialize-Manut }
             'FerProtecao'  { Update-Protecao }
             'FerOffice'    { Update-Office }
             'FerAtalhos'   { Initialize-Atalhos }
@@ -1258,7 +1259,7 @@ function Start-TesteServidor {
 }
 $UI.BtnServidorTestar.Add_Click({ Start-TesteServidor })
 foreach ($tb in 'TxtServidorHost', 'TxtServidorPorta') {
-    $UI[$tb].Add_KeyDown({ param($s, $e) if ($e.Key -eq 'Return') { Start-TesteServidor } })
+    $UI[$tb].Add_KeyDown({ param($origem, $e) if ($e.Key -eq 'Return') { Start-TesteServidor } })
 }
 
 # ---------------- Drivers e COM ----------------
@@ -2149,7 +2150,7 @@ function Show-Evolucao {
     [Windows.Controls.Canvas]::SetLeft($lbl, [math]::Min($w - 22, $xs[$n - 1] - 8)); [Windows.Controls.Canvas]::SetTop($lbl, [math]::Max(-6, (& $y $ult.Nota) - 26))
     [void]$cv.Children.Add($lbl)
 
-    $fmt = { param($s) try { ([datetime]::Parse($s, [Globalization.CultureInfo]::InvariantCulture)).ToString('dd/MM/yyyy') } catch { $s } }
+    $fmt = { param($txt) try { ([datetime]::Parse($txt, [Globalization.CultureInfo]::InvariantCulture)).ToString('dd/MM/yyyy') } catch { $txt } }
     $UI.TxtEvolucaoIni.Text = & $fmt $h[0].Data
     $UI.TxtEvolucaoFim.Text = if ($n -gt 1) { & $fmt $ult.Data } else { '' }
     if ($n -gt 1) {
@@ -2161,6 +2162,280 @@ function Show-Evolucao {
                                else { "$n verificações. Passe o mouse nos pontos para ver os detalhes. A manutenção automática também adiciona pontos." }
 }
 $UI.GraficoEvolucao.Add_SizeChanged({ if ($UI.PainelEvolucao.Visibility -eq 'Visible') { Show-Evolucao } })
+
+# ---------------- Monitor de conexão (duas séries, uma escala) ----------------
+$S.Mon = @{ Rodando = $false; Controle = $null; Dados = @{}; Nomes = @{} }
+
+foreach ($rb in 'RbMonCloudflare', 'RbMonGoogle', 'RbMonOutro') {
+    $UI[$rb].Add_Checked({ $UI.TxtMonOutro.Visibility = if ($UI.RbMonOutro.IsChecked) { 'Visible' } else { 'Collapsed' } })
+}
+
+function Get-AlvoInternet {
+    if ($UI.RbMonOutro.IsChecked) { return ($UI.TxtMonOutro.Text.Trim() -replace '^\w+://', '' -replace '[/:].*$', '') }
+    foreach ($rb in 'RbMonCloudflare', 'RbMonGoogle') { if ($UI[$rb].IsChecked) { return [string]$UI[$rb].Tag } }
+    return '1.1.1.1'
+}
+
+function Start-Monitor {
+    $alvo = Get-AlvoInternet
+    if (-not $alvo) { Show-Toast 'Digite o endereço do seu servidor.' 'aviso'; [void]$UI.TxtMonOutro.Focus(); return }
+    $gw = Get-GatewayPadrao
+    $alvos = New-Object System.Collections.Generic.List[object]
+    if ($gw) { $alvos.Add(@{ Chave = 'roteador'; Endereco = $gw }) }
+    $alvos.Add(@{ Chave = 'internet'; Endereco = $alvo })
+    $S.Mon.Dados = @{ roteador = New-Object System.Collections.Generic.List[object]; internet = New-Object System.Collections.Generic.List[object] }
+    $S.Mon.Nomes = @{ roteador = $(if ($gw) { "Roteador ($gw)" } else { 'Roteador (não encontrado)' }); internet = "Internet ($alvo)" }
+    $UI.TxtMonRoteadorNome.Text = $S.Mon.Nomes.roteador
+    $UI.TxtMonInternetNome.Text = $S.Mon.Nomes.internet
+    $S.Mon.Controle = [hashtable]::Synchronized(@{ Parar = $false })
+    $S.Mon.Rodando = $true
+    $UI.TxtBtnMonitor.Text = 'Parar'; $UI.IcoMonitor.Text = G 0xE71A
+    $UI.TxtMonDiag.Text = 'Medindo... deixe rodar pelo menos 30 segundos.'
+    Start-Tarefa -Nome 'monitor' -Script 'Watch-Conexao $Parametros.Alvos $Parametros.Controle' -Parametros @{ Alvos = $alvos.ToArray(); Controle = $S.Mon.Controle } -AoEvento {
+        param($ev)
+        if ($ev.Tipo -ne 'ping') { return }
+        $lista = $S.Mon.Dados[[string]$ev.Chave]
+        $lista.Add($ev.Ms)
+        if ($lista.Count -gt 600) { $lista.RemoveAt(0) }
+        if ($ev.Chave -eq 'internet') { Update-Monitor }
+    } -AoTerminar {
+        $S.Mon.Rodando = $false
+        $UI.TxtBtnMonitor.Text = 'Começar'; $UI.IcoMonitor.Text = G 0xE768
+    }
+}
+$UI.BtnMonitor.Add_Click({ if ($S.Mon.Rodando) { $S.Mon.Controle.Parar = $true; $UI.TxtBtnMonitor.Text = 'Parando...' } else { Start-Monitor } })
+
+# Estatísticas: atual, média, perda (%) e variação (jitter: diferença média entre medidas seguidas)
+function Get-StatsPing($Lista) {
+    $n = $Lista.Count
+    if ($n -eq 0) { return $null }
+    $okN = 0; $soma = 0.0
+    foreach ($v in $Lista) { if ($null -ne $v) { $okN++; $soma += $v } }
+    $jit = 0.0; $pares = 0
+    for ($i = 1; $i -lt $n; $i++) { if ($null -ne $Lista[$i] -and $null -ne $Lista[$i - 1]) { $jit += [math]::Abs($Lista[$i] - $Lista[$i - 1]); $pares++ } }
+    $r = [ordered]@{}
+    $r.Atual = $Lista[$n - 1]
+    $r.Media = if ($okN) { [math]::Round($soma / $okN, 1) } else { $null }
+    $r.Perda = [math]::Round(100 * ($n - $okN) / $n, 1)
+    $r.Jitter = if ($pares) { [math]::Round($jit / $pares, 1) } else { 0 }
+    $r.N = $n
+    return [pscustomobject]$r
+}
+
+function Update-Monitor {
+    $sr = Get-StatsPing $S.Mon.Dados.roteador
+    $si = Get-StatsPing $S.Mon.Dados.internet
+    foreach ($par in @(@{ S = $sr; A = 'TxtMonRoteadorAtual'; T = 'TxtMonRoteadorStats' }, @{ S = $si; A = 'TxtMonInternetAtual'; T = 'TxtMonInternetStats' })) {
+        if (-not $par.S) { continue }
+        $UI[$par.A].Text = if ($null -eq $par.S.Atual) { 'sem resposta' } elseif ($par.S.Atual -eq 0) { '<1 ms' } else { "$($par.S.Atual) ms" }
+        $UI[$par.T].Text = "média $(if ($null -ne $par.S.Media) { "$($par.S.Media) ms" } else { '-' })  ·  perda $($par.S.Perda)%  ·  variação $($par.S.Jitter) ms"
+    }
+    Show-GraficoMonitor
+    # Diagnóstico em linguagem simples
+    if (-not $si -or $si.N -lt 10) { return }
+    $nivel = 'info'; $titulo = 'Diagnóstico'; $txt = ''
+    if ($sr -and $sr.Perda -gt 2) {
+        $nivel = 'alto'; $titulo = 'O problema está entre o PC e o roteador'
+        $txt = "Até o roteador já há $($sr.Perda)% de perda. Isso aponta para Wi-Fi fraco ou com interferência, cabo de rede ruim ou placa de rede. Teste com cabo, aproxime do roteador ou reinicie o roteador."
+    } elseif ($si.Perda -gt 2) {
+        $nivel = 'alto'; $titulo = 'O problema está na internet (provedor)'
+        $txt = "O roteador responde bem, mas $($si.Perda)% das respostas da internet se perdem. O problema é no modem, no provedor ou no destino. Ligue para a operadora informando a perda e o horário."
+    } elseif ($si.Media -gt 100 -or $si.Jitter -gt 30) {
+        $nivel = 'medio'; $titulo = 'Internet lenta ou instável'
+        $txt = "Não há perda, mas o atraso médio é $($si.Media) ms com variação de $($si.Jitter) ms. Para jogos e chamadas, o ideal é abaixo de 60 ms e variação abaixo de 15 ms. Pode ser alguém usando muita banda na rede ou horário de pico do provedor."
+    } elseif ($sr -and $sr.Media -gt 10) {
+        $nivel = 'medio'; $titulo = 'Atraso alto até o roteador'
+        $txt = "O roteador leva $($sr.Media) ms para responder. No cabo deveria ficar abaixo de 2 ms; no Wi-Fi, abaixo de 10 ms. Sinal fraco de Wi-Fi é a causa mais comum."
+    } else {
+        $nivel = 'ok'; $titulo = 'Conexão estável'
+        $txt = "Sem perdas: roteador em $(if ($sr) { "$($sr.Media) ms" } else { '-' }) e internet em $($si.Media) ms, com variação de $($si.Jitter) ms. Se algo está lento, o problema não parece ser a sua conexão."
+    }
+    $UI.TxtMonDiagTitulo.Text = $titulo
+    $UI.TxtMonDiag.Text = $txt
+    $mapa = @{ ok = @(0xE73E, 'Ok', 'OkSuave'); medio = @(0xE7BA, 'Aviso', 'AvisoSuave'); alto = @(0xE783, 'Erro', 'ErroSuave'); info = @(0xE946, 'Info', 'InfoSuave') }
+    $m = $mapa[$nivel]
+    $UI.IcoMonDiag.Text = G $m[0]
+    Set-Referencia $UI.IcoMonDiag ([Windows.Controls.TextBlock]::ForegroundProperty) $m[1]
+    Set-Referencia $UI.CardMonDiag ([Windows.Controls.Border]::BackgroundProperty) $m[2]
+}
+
+function Show-GraficoMonitor {
+    $cv = $UI.GraficoMonitor; $eixo = $UI.EixoMonitor
+    $w = $cv.ActualWidth; $alt = $cv.ActualHeight
+    if ($w -lt 20) { return }
+    $cv.Children.Clear(); $eixo.Children.Clear()
+    $janela = 60
+    $series = @(@{ Chave = 'roteador'; Cor = 'Serie1' }, @{ Chave = 'internet'; Cor = 'Serie2' })
+    # Escala única (ms), arredondada para um valor "redondo"
+    $vis = @()
+    foreach ($serie in $series) { $l = $S.Mon.Dados[$serie.Chave]; if ($l) { $ini = [math]::Max(0, $l.Count - $janela); for ($i = $ini; $i -lt $l.Count; $i++) { if ($null -ne $l[$i]) { $vis += $l[$i] } } } }
+    $maxV = if ($vis.Count) { ($vis | Measure-Object -Maximum).Maximum } else { 10 }
+    $escala = (10, 20, 50, 100, 200, 500, 1000, 2000 | Where-Object { $_ -ge $maxV * 1.1 } | Select-Object -First 1); if (-not $escala) { $escala = 2000 }
+    $topo = 14.0; $base = $alt - 4.0
+    $y = { param($v) $base - ([math]::Min($v, $escala) / $escala) * ($base - $topo) }
+    $x = { param($i) $w * $i / ($janela - 1) }
+    foreach ($v in 0, ($escala / 2), $escala) {
+        $ln = [Windows.Shapes.Line]::new(); $ln.X1 = 0; $ln.X2 = $w; $ln.Y1 = (& $y $v); $ln.Y2 = $ln.Y1; $ln.StrokeThickness = 1
+        Set-Referencia $ln ([Windows.Shapes.Shape]::StrokeProperty) 'Grade'; [void]$cv.Children.Add($ln)
+        $tb = [Windows.Controls.TextBlock]::new(); $tb.Text = "$v ms"; $tb.FontSize = 11; $tb.Width = 36; $tb.TextAlignment = 'Right'
+        Set-Referencia $tb ([Windows.Controls.TextBlock]::ForegroundProperty) 'TextoFraco'
+        [Windows.Controls.Canvas]::SetTop($tb, (& $y $v) - 8); [void]$eixo.Children.Add($tb)
+    }
+    $ultimosY = @{}
+    foreach ($serie in $series) {
+        $l = $S.Mon.Dados[$serie.Chave]
+        if (-not $l -or $l.Count -eq 0) { continue }
+        $ini = [math]::Max(0, $l.Count - $janela); $desloc = $janela - ($l.Count - $ini)
+        $pl = $null
+        for ($i = $ini; $i -lt $l.Count; $i++) {
+            $px = & $x ($i - $ini + $desloc)
+            if ($null -eq $l[$i]) {
+                $pl = $null   # quebra a linha na perda
+                $xm = [Windows.Controls.TextBlock]::new(); $xm.Text = G 0xE711; $xm.FontFamily = $Win.FindResource('Icones'); $xm.FontSize = 10
+                Set-Referencia $xm ([Windows.Controls.TextBlock]::ForegroundProperty) 'Erro'
+                [Windows.Controls.Canvas]::SetLeft($xm, $px - 5); [Windows.Controls.Canvas]::SetTop($xm, $(if ($serie.Chave -eq 'roteador') { 0 } else { 12 }) - 4)
+                [void]$cv.Children.Add($xm); continue
+            }
+            if (-not $pl) {
+                $pl = [Windows.Shapes.Polyline]::new(); $pl.StrokeThickness = 2; $pl.StrokeLineJoin = 'Round'
+                Set-Referencia $pl ([Windows.Shapes.Shape]::StrokeProperty) $serie.Cor; [void]$cv.Children.Add($pl)
+            }
+            [void]$pl.Points.Add([Windows.Point]::new($px, (& $y $l[$i])))
+        }
+        if ($null -ne $l[$l.Count - 1]) { $ultimosY[$serie.Chave] = & $y $l[$l.Count - 1] }
+    }
+    # Rótulos diretos no fim de cada linha (valor atual), sem sobrepor
+    $yr = $ultimosY['roteador']; $yi = $ultimosY['internet']
+    foreach ($k in 'roteador', 'internet') {
+        if (-not $ultimosY.ContainsKey($k)) { continue }
+        $yy = $ultimosY[$k] - 18
+        if ($k -eq 'internet' -and $null -ne $yr -and [math]::Abs($yi - $yr) -lt 16) { $yy = $ultimosY[$k] + 4 }
+        $lb = [Windows.Controls.TextBlock]::new(); $vAtual = $S.Mon.Dados[$k][$S.Mon.Dados[$k].Count - 1]; $lb.Text = if ($vAtual -eq 0) { "<1 ms" } else { "$vAtual ms" }; $lb.FontSize = 11.5; $lb.FontWeight = 'SemiBold'
+        Set-Referencia $lb ([Windows.Controls.TextBlock]::ForegroundProperty) 'Texto'
+        [Windows.Controls.Canvas]::SetLeft($lb, $w - 44); [Windows.Controls.Canvas]::SetTop($lb, [math]::Max(0, $yy))
+        [void]$cv.Children.Add($lb)
+    }
+    if ($S.Mon.Cruz) { [void]$cv.Children.Add($S.Mon.Cruz) }
+}
+
+# Passar o mouse: linha vertical + dica com os dois valores daquele segundo
+$S.Mon.Cruz = [Windows.Shapes.Line]::new(); $S.Mon.Cruz.StrokeThickness = 1; $S.Mon.Cruz.Visibility = 'Collapsed'; $S.Mon.Cruz.IsHitTestVisible = $false
+Set-Referencia $S.Mon.Cruz ([Windows.Shapes.Shape]::StrokeProperty) 'TextoFraco'
+$UI.GraficoMonitor.Add_MouseMove({
+    param($origem, $e)
+    $w = $UI.GraficoMonitor.ActualWidth; if ($w -lt 20) { return }
+    $px = $e.GetPosition($UI.GraficoMonitor).X
+    $slot = [int][math]::Round(59 * $px / $w); $px = $w * $slot / 59
+    $S.Mon.Cruz.X1 = $px; $S.Mon.Cruz.X2 = $px; $S.Mon.Cruz.Y1 = 0; $S.Mon.Cruz.Y2 = $UI.GraficoMonitor.ActualHeight; $S.Mon.Cruz.Visibility = 'Visible'
+    $partes = @()
+    foreach ($k in 'roteador', 'internet') {
+        $l = $S.Mon.Dados[$k]; if (-not $l -or $l.Count -eq 0) { continue }
+        $idx = $l.Count - 1 - (59 - $slot)
+        if ($idx -ge 0) { $v = $l[$idx]; $partes += "$($S.Mon.Nomes[$k]): $(if ($null -ne $v) { "$v ms" } else { 'sem resposta' })" }
+    }
+    $UI.GraficoMonitor.ToolTip = if ($partes) { "há $(59 - $slot) s`n$($partes -join "`n")" } else { $null }
+})
+$UI.GraficoMonitor.Add_MouseLeave({ $S.Mon.Cruz.Visibility = 'Collapsed' })
+
+# ---------------- Manutenção automática ----------------
+function Initialize-Manut {
+    if ($UI.CbManutHora.Items.Count -eq 0) { foreach ($h in 6..23) { [void]$UI.CbManutHora.Items.Add(('{0:00}:00' -f $h)) } }
+    $cfg = Get-ConfigManutencao
+    $UI.RbManutDiaria.IsChecked = ($cfg.Frequencia -eq 'diaria')
+    $UI.RbManutSemanal.IsChecked = ($cfg.Frequencia -ne 'diaria')
+    foreach ($it in $UI.CbManutDia.Items) { if ([string]$it.Tag -eq [string]$cfg.Dia) { $UI.CbManutDia.SelectedItem = $it } }
+    $UI.CbManutHora.SelectedItem = [string]$cfg.Hora
+    if ($UI.CbManutHora.SelectedIndex -lt 0) { $UI.CbManutHora.SelectedItem = '12:00' }
+    $tar = @($cfg.Tarefas)
+    $UI.ChkManutTemp.IsChecked = $tar -contains 'temp'
+    $UI.ChkManutDns.IsChecked = $tar -contains 'dns'
+    $UI.ChkManutLixeira.IsChecked = $tar -contains 'lixeira'
+    $UI.ChkManutVerificar.IsChecked = [bool]$cfg.Verificar
+    Update-StatusManut
+}
+foreach ($rb in 'RbManutSemanal', 'RbManutDiaria') { $UI[$rb].Add_Checked({ $UI.PainelManutDia.Visibility = if ($UI.RbManutDiaria.IsChecked) { 'Collapsed' } else { 'Visible' } }) }
+
+function Get-ConfigManutTela {
+    $tar = @()
+    if ($UI.ChkManutTemp.IsChecked) { $tar += 'temp' }
+    if ($UI.ChkManutDns.IsChecked) { $tar += 'dns' }
+    if ($UI.ChkManutLixeira.IsChecked) { $tar += 'lixeira' }
+    return [pscustomobject]@{
+        Frequencia = $(if ($UI.RbManutDiaria.IsChecked) { 'diaria' } else { 'semanal' })
+        Dia        = [string]$UI.CbManutDia.SelectedItem.Tag
+        Hora       = [string]$UI.CbManutHora.SelectedItem
+        Tarefas    = $tar
+        Verificar  = [bool]$UI.ChkManutVerificar.IsChecked
+    }
+}
+
+function Update-StatusManut {
+    $st = Get-StatusManutencao
+    if ($st.Ativa) {
+        $UI.TxtManutTitulo.Text = 'Manutenção automática ligada'
+        $UI.TxtManutDetalhe.Text = if ($st.Proxima) { "Próxima execução: $($st.Proxima.ToString('dddd, dd/MM \à\s HH:mm'))." } else { 'Agendada.' }
+        $UI.IcoManut.Text = G 0xE73E
+        Set-Referencia $UI.IcoManut ([Windows.Controls.TextBlock]::ForegroundProperty) 'Ok'
+        Set-Referencia $UI.CirculoManut ([Windows.Controls.Border]::BackgroundProperty) 'OkSuave'
+        $UI.TxtBtnManutAtivar.Text = 'Salvar alterações'
+        $UI.BtnManutDesligar.Visibility = 'Visible'
+    } else {
+        $UI.TxtManutTitulo.Text = 'Manutenção automática desligada'
+        $UI.TxtManutDetalhe.Text = 'Limpa o PC e verifica a saúde sozinho, no dia e hora que você escolher.'
+        $UI.IcoManut.Text = G 0xE81C
+        Set-Referencia $UI.IcoManut ([Windows.Controls.TextBlock]::ForegroundProperty) 'TextoSec'
+        Set-Referencia $UI.CirculoManut ([Windows.Controls.Border]::BackgroundProperty) 'Superficie2'
+        $UI.TxtBtnManutAtivar.Text = 'Ligar manutenção'
+        $UI.BtnManutDesligar.Visibility = 'Collapsed'
+    }
+    $r = $st.Resultado
+    if ($r) {
+        $data = try { ([datetime]::Parse($r.Data, [Globalization.CultureInfo]::InvariantCulture)).ToString('dd/MM/yyyy HH:mm') } catch { $r.Data }
+        $UI.TxtManutUltima.Text = "Rodou em $data." + $(if ($null -ne $r.Nota) { " Nota do PC: $($r.Nota)." } else { '' })
+        $mapa = @{ ok = 'ok'; erro = 'erro'; aviso = 'aviso'; ignorado = 'ignorado' }
+        $UI.ListaManutUltima.ItemsSource = ConvertTo-Linhas @(@($r.Itens) | ForEach-Object { New-Linha -Titulo $_.Nome -Texto ([string]$_.Mensagem) -Nivel $mapa[[string]$_.Status] })
+    }
+}
+
+$UI.BtnManutAtivar.Add_Click({
+    $cfg = Get-ConfigManutTela
+    if (@($cfg.Tarefas).Count -eq 0 -and -not $cfg.Verificar) { Show-Toast 'Marque pelo menos uma coisa para a manutenção fazer.' 'aviso'; return }
+    $UI.BtnManutAtivar.IsEnabled = $false
+    Start-Tarefa -Nome 'manut-reg' -Script 'Register-Manutencao $Parametros.Cfg' -Parametros @{ Cfg = $cfg } -AoTerminar {
+        param($saida, $erro)
+        $UI.BtnManutAtivar.IsEnabled = $true
+        if ($erro) { Show-Toast "Não foi possível agendar: $erro" 'erro' } else { Show-Toast 'Manutenção automática agendada no Agendador de Tarefas do Windows.' 'ok' }
+        Update-StatusManut
+    }
+})
+$UI.BtnManutDesligar.Add_Click({
+    Show-Dialogo -Titulo 'Desligar a manutenção automática?' -Texto 'A tarefa é removida do Agendador do Windows. Você pode ligar de novo quando quiser.' -TextoOk 'Desligar' -Acao {
+        Start-Tarefa -Nome 'manut-rm' -Script 'Unregister-Manutencao' -AoTerminar {
+            param($saida, $erro)
+            if ($erro) { Show-Toast "Falhou: $erro" 'erro' } else { Show-Toast 'Manutenção automática desligada.' 'ok' }
+            Update-StatusManut
+        }
+    }
+})
+$UI.BtnManutAgora.Add_Click({
+    $cfg = Get-ConfigManutTela
+    if ($cfg.Tarefas -contains 'lixeira') {
+        Show-Dialogo -Titulo 'Rodar a manutenção agora?' -Tipo 'perigo' -TextoOk 'Rodar agora' -Texto 'A Lixeira está marcada: tudo o que está nela será apagado para sempre.' -Dados $cfg -Acao { param($c) Start-ManutAgora $c }
+    } else { Start-ManutAgora $cfg }
+})
+function Start-ManutAgora($Cfg) {
+    $UI.BtnManutAgora.IsEnabled = $false
+    Show-Toast 'Rodando a manutenção... leva alguns segundos.' 'info'
+    Start-Tarefa -Nome 'manut-agora' -Script '$a = Save-ConfigManutencao $Parametros.Cfg; Invoke-ManutencaoAgendada $a' -Parametros @{ Cfg = $Cfg } -AoTerminar {
+        param($saida, $erro)
+        $UI.BtnManutAgora.IsEnabled = $true
+        $r = @($saida | Where-Object { $_ -is [hashtable] })[0]
+        if ($erro) { Show-Toast "Falhou: $erro" 'erro' }
+        else { Show-Toast $(if ($r -and $null -ne $r.Nota) { "Manutenção concluída. Nota do PC: $($r.Nota)." } else { 'Manutenção concluída.' }) 'ok' }
+        Update-StatusManut
+        Start-Deteccao
+    }
+}
 
 # ===============================================================
 #  Histórico
@@ -2239,7 +2514,8 @@ $UI.BtnTema.Add_Click({
 })
 $Win.Add_Closing({
     param($origem, $e)
-    if ($S.Executando) { $e.Cancel = $true; Show-Toast 'Aguarde a execução terminar antes de fechar.' 'aviso' }
+    if ($S.Executando) { $e.Cancel = $true; Show-Toast 'Aguarde a execução terminar antes de fechar.' 'aviso'; return }
+    if ($S.Mon -and $S.Mon.Controle) { $S.Mon.Controle.Parar = $true }
 })
 $Win.Add_PreviewKeyDown({
     param($origem, $e)
@@ -2375,6 +2651,21 @@ if ($Captura) {
         { Set-Tema 'claro'; Show-Evolucao }
         { Save-Captura '28-evolucao-claro' }
         { Set-Tema 'escuro'; $Otz.Dados = $S.DadosReais }
+        { Open-Pagina 'NavFerramentas'; Show-Ferramenta 'RbFerMonitor' }
+        { Start-Monitor }
+        { }
+        { }
+        { }
+        { }
+        { }
+        { }
+        { }
+        { }
+        { }
+        { Save-Captura '29-monitor' }
+        { $S.Mon.Controle.Parar = $true; Show-Ferramenta 'RbFerManut' }
+        { }
+        { Save-Captura '30-manutencao' }
         { Open-Pagina 'NavHistorico' }
         { Save-Captura '7-historico' }
         { Open-Pagina 'NavAjuda' }

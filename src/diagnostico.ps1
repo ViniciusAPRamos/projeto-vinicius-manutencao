@@ -319,3 +319,27 @@ function Get-Verificacoes([int]$Max = 30) {
     for ($i = $ini; $i -lt $linhas.Count; $i++) { try { $res.Add(($linhas[$i] | ConvertFrom-Json)) } catch { } }
     return $res.ToArray()
 }
+# ===============================================================
+#  Monitor de conexão: 1 ping por segundo em cada alvo
+#  $Controle é um hashtable sincronizado compartilhado com a janela:
+#  quando a janela põe Parar = $true, o laço termina.
+# ===============================================================
+function Get-GatewayPadrao {
+    return [string](Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Sort-Object RouteMetric | Select-Object -First 1).NextHop
+}
+
+function Watch-Conexao($Alvos, $Controle) {
+    $ping = [Net.NetworkInformation.Ping]::new()
+    try {
+        while (-not $Controle.Parar) {
+            $ini = Get-Date
+            foreach ($a in $Alvos) {
+                $ms = $null
+                try { $r = $ping.Send([string]$a.Endereco, 1000); if ($r.Status -eq 'Success') { $ms = [int]$r.RoundtripTime } } catch { }
+                Send-Evento @{ Tipo = 'ping'; Chave = $a.Chave; Ms = $ms }
+            }
+            $resto = 1000 - ((Get-Date) - $ini).TotalMilliseconds
+            if ($resto -gt 0) { Start-Sleep -Milliseconds ([int]$resto) }
+        }
+    } finally { $ping.Dispose() }
+}

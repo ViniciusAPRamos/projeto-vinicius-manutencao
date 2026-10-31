@@ -30,9 +30,14 @@ function Get-UsuarioTarefa {
     return [Security.Principal.WindowsIdentity]::GetCurrent().Name
 }
 
-function Register-Manutencao($Config) {
+function Save-ConfigManutencao($Config) {
     $arq = Get-ArqConfigManut
     [IO.File]::WriteAllText($arq, (ConvertTo-Json -InputObject $Config -Depth 4), (New-Object Text.UTF8Encoding $false))
+    return $arq
+}
+
+function Register-Manutencao($Config) {
+    $arq = Save-ConfigManutencao $Config
     $gui = Join-Path $Script:Otz.SrcDir 'Otimizador-Vinicius-GUI.ps1'
     $acao = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$gui`" -Manutencao `"$arq`""
     $hora = [datetime]::ParseExact($Config.Hora, 'HH:mm', $null)

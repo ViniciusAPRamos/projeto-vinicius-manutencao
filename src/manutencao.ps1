@@ -1,6 +1,6 @@
 ﻿#Requires -Version 5.1
 <#
-    Manutenção agendada do Otimizador Vinicius v2.0
+    Manutenção agendada do TechPulse v2.0
     Cria uma tarefa no Agendador de Tarefas do Windows que roda o
     otimizador SEM JANELA (-Manutencao <config.json>) no dia/hora escolhidos.
     Depende do nucleo.ps1 e do diagnostico.ps1.
@@ -47,7 +47,7 @@ function Register-Manutencao($Config) {
     # StartWhenAvailable: se o PC estava desligado no horário, roda assim que der
     $ajustes = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 1)
     Register-ScheduledTask -TaskName $Script:NomeTarefaManut -TaskPath '\' -Action $acao -Trigger $gatilho -Principal $principal -Settings $ajustes `
-        -Description 'Limpeza e verificação automáticas criadas pelo Otimizador Vinicius. Para remover, use o próprio otimizador (Ferramentas > Manutenção automática).' -Force | Out-Null
+        -Description 'Limpeza e verificação automáticas criadas pelo TechPulse. Para remover, use o próprio otimizador (Ferramentas > Manutenção automática).' -Force | Out-Null
     Write-Log "Manutenção agendada: $($Config.Frequencia) $($Config.Dia) $($Config.Hora) - tarefas: $(@($Config.Tarefas) -join ', ') - verificar: $($Config.Verificar) - guardião: $($Config.Guardiao)"
 }
 

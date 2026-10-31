@@ -1,0 +1,82 @@
+# Publica o instalador do TechPulse nas Releases do GitHub.
+#   push no main      -> versão de TESTE (pré-release) <versao.txt>.<nº do build>, ex.: 2.1.0.15
+#   tag v2.1.0        -> versão ESTÁVEL 2.1.0 (todos os PCs recebem)
+# Depois de publicar uma estável, aumente o versao.txt (ex.: 2.1.1) para os próximos testes.
+name: Publicar TechPulse
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publicar-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Versão e canal
+        id: v
+        shell: pwsh
+        run: |
+          $base = (Get-Content versao.txt -Raw).Trim()
+          if ('${{ github.ref_type }}' -eq 'tag') {
+            $versao = '${{ github.ref_name }}'.TrimStart('v')
+            $canal = 'estavel'
+            $tag = '${{ github.ref_name }}'
+          } else {
+            $versao = "$base.${{ github.run_number }}"
+            $canal = 'teste'
+            $tag = "teste-$versao"
+          }
+          "versao=$versao" >> $env:GITHUB_OUTPUT
+          "canal=$canal"   >> $env:GITHUB_OUTPUT
+          "tag=$tag"       >> $env:GITHUB_OUTPUT
+          Write-Host "TechPulse $versao ($canal) -> $tag"
+
+      - name: Instalar o Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Conferir codificação e sintaxe
+        shell: powershell
+        run: .\tools\verificar.ps1
+
+      - name: Montar o instalador
+        shell: powershell
+        run: .\tools\build.ps1 -Versao ${{ steps.v.outputs.versao }} -Canal ${{ steps.v.outputs.canal }}
+
+      - name: Publicar a release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $versao = '${{ steps.v.outputs.versao }}'
+          $tag = '${{ steps.v.outputs.tag }}'
+          $setup = "dist/TechPulse-Setup-$versao.exe"
+          if ('${{ steps.v.outputs.canal }}' -eq 'teste') {
+            $msg = git log -1 --pretty=%B
+            Set-Content -Path notas.md -Encoding utf8 -Value ("Versão de teste gerada a partir do commit ${{ github.sha }}.`n`n" + ($msg -join "`n"))
+            gh release create $tag $setup --title "TechPulse $versao (teste)" --notes-file notas.md --prerelease --target ${{ github.sha }}
+          } else {
+            gh release create $tag $setup --title "TechPulse $versao" --generate-notes --verify-tag
+          }
+
+      - name: Apagar versões de teste antigas (mantém as 10 mais novas)
+        if: steps.v.outputs.canal == 'teste'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $testes = gh release list --limit 100 --json tagName,isPrerelease,createdAt | ConvertFrom-Json |
+            Where-Object { $_.isPrerelease -and $_.tagName -like 'teste-*' } | Sort-Object createdAt -Descending
+          $testes | Select-Object -Skip 10 | ForEach-Object { gh release delete $_.tagName --cleanup-tag -y }

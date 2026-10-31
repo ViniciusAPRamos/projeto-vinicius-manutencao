@@ -1,4 +1,4 @@
-# Otimizador Vinicius
+# TechPulse
 
 Otimizador de Windows 10/11 com interface gráfica, feito em PowerShell + WPF.
 Cada ajuste vem explicado em linguagem simples, mostra se já está aplicado e pode ser **desfeito individualmente**, voltando ao valor exato que existia antes.
@@ -7,9 +7,21 @@ Cada ajuste vem explicado em linguagem simples, mostra se já está aplicado e p
 
 > ⚠️ **v2.0 em teste.** A interface e a detecção foram testadas; a aplicação com administrador ainda passa pelo [plano de testes](docs/plano-de-testes.md). Use primeiro num PC de testes ou crie um ponto de restauração.
 
+## Instalar
+
+Baixe o **`TechPulse-Setup-x.y.z.exe`** em [Releases](https://github.com/ViniciusAPRamos/projeto-vinicius-manutencao/releases) e instale.
+Na primeira vez, o Windows pode mostrar "O Windows protegeu o computador" (o instalador ainda não tem assinatura digital): clique em **Mais informações > Executar assim mesmo**.
+Depois disso, o TechPulse avisa no Início quando houver versão nova e se atualiza com um clique. Em **Ajuda > Atualizações** dá para receber também as versões de teste.
+
+## Publicar uma versão (desenvolvimento)
+
+- Todo `git push` no `main` gera uma **versão de teste** (`versao.txt` + número do build, ex.: 2.1.0.15), publicada como pré-release.
+- Para uma **versão estável**: `git tag v2.1.0` e `git push origin v2.1.0`. Depois aumente o `versao.txt` (ex.: 2.1.1) para os próximos testes.
+- Local: `tools\build.ps1` monta `dist\TechPulse-Setup-<versão>.exe` (precisa do Inno Setup 6: `winget install --id JRSoftware.InnoSetup -e`).
+
 ## Como usar
 
-1. Dois cliques em **`src\Executar-Otimizador.bat`** e aceite o pedido de administrador.
+1. Abra o **TechPulse** pelo Menu Iniciar (ou, na pasta do projeto, dois cliques em **`src\Executar-Otimizador.bat`**) e aceite o pedido de administrador.
 2. **Início:** resumo do PC, classificação (Low/Mid/High-end) e perfil sugerido.
 3. **Otimizar:** escolha um perfil (Básico, Trabalho, Gamer, PC simples) ou marque item por item. Use **Simular** para ver o que mudaria e **Aplicar** para executar.
 4. Acompanhe cada item ficar verde ✓ ou vermelho ✗ (com o motivo). No final, o resumo diz se precisa reiniciar.

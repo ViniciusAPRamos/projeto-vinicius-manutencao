@@ -13,7 +13,7 @@ $utf8Bom = New-Object Text.UTF8Encoding $true
 $falhas = 0
 
 $arquivos = Get-ChildItem $raiz -Recurse -File -Include *.ps1, *.psm1, *.psd1, *.xaml, *.cs |
-    Where-Object { $_.FullName -notmatch '\\\.git\\' }
+    Where-Object { $_.FullName -notmatch '\\(\.git|dist)\\' }
 
 foreach ($a in $arquivos) {
     $bytes = [IO.File]::ReadAllBytes($a.FullName)

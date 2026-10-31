@@ -1,4 +1,4 @@
-# Otimizador Vinicius — Contexto do projeto
+# TechPulse (antigo Otimizador Vinicius) — Contexto do projeto
 
 > Documento de continuidade. Resume tudo o que foi feito na conversa original (claude.ai) e o que precisa ser feito a partir daqui.
 > Leia por completo antes de propor ou alterar código.
@@ -30,6 +30,8 @@
 | `src/segundoplano.ps1` + `src/conhecidos.ps1` | "Limpar o segundo plano" (página Serviços e ajuste `serv.segundo-plano`): serviços de terceiros em Automático → Manual e itens de inicialização desligados, com desfazer (`segundo-plano.json`). `conhecidos.ps1` é a base de conhecimento (seguro / depende / manter; desconhecido nunca vem marcado nem entra em modo silencioso). Guardião semanal na manutenção agendada. |
 | `src/desinstalar.ps1` | Ferramentas > Desinstalar: desinstalador oficial (silencioso só para MSI, Inno Setup ou QuietUninstallString), espera a entrada sumir (NSIS se copia para o Temp), procura sobras (pastas, registro, inicialização, tarefas, serviços, entrada órfã) e apaga o que o usuário marcar: pastas para a Lixeira, registro com backup .reg. Nunca apaga pasta onde mora outro programa (ex.: `Program Files\Epic Games` guarda os jogos). Apps da Store: todas as contas + provisionado. |
 | `tools/coletar-segundo-plano.ps1` | Coleta só leitura (serviços, inicialização, tarefas, processos, programas) para calibrar a base de conhecimento com PCs reais. |
+| `src/atualizacao.ps1` | Atualização automática pelas Releases do GitHub (`ViniciusAPRamos/projeto-vinicius-manutencao`): canal estável (tags `v*`) ou teste (pré-releases). Só age no app instalado (`$Otz.Instalado` = existe `TechPulse.exe` na pasta acima de `src`). |
+| `installer/` + `tools/build.ps1` + `.github/workflows/release.yml` | **TechPulse** (nome do produto): `Launcher.cs` → `TechPulse.exe` (manifesto pede admin), `TechPulse.iss` (Inno Setup, AppId fixo: NUNCA mudar), `build.ps1` monta `dist\`, o workflow publica: push no main = teste `versao.txt`.<nº do build>; tag `v2.1.0` = estável. Após uma estável, aumentar o `versao.txt`. Nomes internos (pasta de dados `OtimizadorVinicius`, tarefa agendada, formato do perfil) ficaram iguais de propósito. |
 | `src/ui/Tela.cs` | Win32 `EnumDisplaySettings`/`ChangeDisplaySettingsEx`: Hz atual e máximo de cada monitor. |
 | `src/ferramentas.ps1` | `Get-InfoPC`, relatório HTML, inicialização, drivers serial, DNS, teste TCP, `Invoke-ProcessoAoVivo` (SFC/DISM/winget), lista winget. |
 | `src/catalogo/NN-*.ps1` | Um arquivo por categoria; cada item é um hashtable (ver `docs/catalogo.md`). 78 itens em 14 categorias. Tipos de mudança suportados pelo motor: `Registro`, `Energia` (com `Corrente = 'dc'` para bateria), `Servicos` (sc config), `DirectX` (string global de jogos) ou código próprio. |

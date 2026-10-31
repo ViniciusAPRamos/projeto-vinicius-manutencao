@@ -57,7 +57,7 @@ if (-not $ehAdmin -and -not $SemElevar -and -not $Captura -and -not $Inventario)
     } catch {
         if ($Script:Silencioso) { Write-Host 'É preciso permissão de administrador.' -ForegroundColor Red; exit 1 }
         Add-Type -AssemblyName PresentationFramework
-        [void][Windows.MessageBox]::Show('O otimizador precisa de permissão de administrador para alterar o sistema. Abra de novo e clique em "Sim".', 'Otimizador Vinicius', 'OK', 'Warning')
+        [void][Windows.MessageBox]::Show('O otimizador precisa de permissão de administrador para alterar o sistema. Abra de novo e clique em "Sim".', 'TechPulse', 'OK', 'Warning')
     }
     exit
 }
@@ -79,15 +79,15 @@ if ($Script:Silencioso) {
         $sidAlvo = if ($ehAdmin) { Get-SidUsuarioSessao } else { $null }
         Initialize-Otz -SrcDir $Script:SrcDir -SidAlvo $sidAlvo
         if ($Inventario) {
-            Write-Host "Otimizador Vinicius - inventário de $env:COMPUTERNAME" -ForegroundColor Cyan
+            Write-Host "TechPulse - inventário de $env:COMPUTERNAME" -ForegroundColor Cyan
             $arq = Save-InventarioPC $Inventario
             Write-Host "Salvo em $arq" -ForegroundColor Green
         } elseif ($Manutencao) {
             $r = Invoke-ManutencaoAgendada $Manutencao
             if ($r.Erros) { $codigo = 1 }
         } else {
-            $host.UI.RawUI.WindowTitle = "Otimizador Vinicius - aplicando perfil $Perfil"
-            Write-Host "Otimizador Vinicius v$($Otz.Versao) - modo silencioso" -ForegroundColor Cyan
+            $host.UI.RawUI.WindowTitle = "TechPulse - aplicando perfil $Perfil"
+            Write-Host "TechPulse v$($Otz.Versao) - modo silencioso" -ForegroundColor Cyan
             Write-Host "Perfil: $Perfil" -ForegroundColor Cyan
             Write-Host ''
             $r = Invoke-PerfilSilencioso $Perfil
@@ -139,6 +139,7 @@ try {
     . (Join-Path $Script:SrcDir 'inventario.ps1')
     . (Join-Path $Script:SrcDir 'segundoplano.ps1')
     . (Join-Path $Script:SrcDir 'desinstalar.ps1')
+    . (Join-Path $Script:SrcDir 'atualizacao.ps1')
     . (Join-Path $Script:SrcDir 'glossario.ps1')
     $sidAlvo = if ($ehAdmin) { Get-SidUsuarioSessao } else { $null }
     Initialize-Otz -SrcDir $Script:SrcDir -SidAlvo $sidAlvo
@@ -152,7 +153,7 @@ try {
 } catch {
     $msg = "Falha ao abrir o otimizador:`n`n$($_.Exception.Message)"
     try { Write-Log $msg } catch { }
-    [void][Windows.MessageBox]::Show($msg, 'Otimizador Vinicius', 'OK', 'Error')
+    [void][Windows.MessageBox]::Show($msg, 'TechPulse', 'OK', 'Error')
     exit 1
 }
 $ErrorActionPreference = 'Continue'
@@ -210,7 +211,7 @@ function Set-Tema([string]$Nome) {
 }
 
 function Save-Preferencias {
-    try { [IO.File]::WriteAllText($S.ArqPrefs, (@{ Tema = $S.Tema; Avancado = [bool]$S.ModoAvancado; PastaFrota = [string]$S.PastaFrota } | ConvertTo-Json), (New-Object Text.UTF8Encoding $false)) } catch { }
+    try { [IO.File]::WriteAllText($S.ArqPrefs, (@{ Tema = $S.Tema; Avancado = [bool]$S.ModoAvancado; PastaFrota = [string]$S.PastaFrota; Canal = [string]$S.Canal } | ConvertTo-Json), (New-Object Text.UTF8Encoding $false)) } catch { }
 }
 
 function Get-TemaInicial {
@@ -375,6 +376,7 @@ function Start-Tarefa {
 . (Join-Path `$SrcDir 'manutencao.ps1')
 . (Join-Path `$SrcDir 'segundoplano.ps1')
 . (Join-Path `$SrcDir 'desinstalar.ps1')
+. (Join-Path `$SrcDir 'atualizacao.ps1')
 Initialize-Otz -SrcDir `$SrcDir -Fila `$Fila -SidAlvo `$SidAlvo
 $Script
 "@
@@ -1029,7 +1031,7 @@ $UI.BtnExecLog.Add_Click({
 $UI.BtnExecReiniciar.Add_Click({
     Show-Dialogo -Titulo 'Reiniciar o computador agora?' -Texto 'Salve o que estiver aberto. O PC reinicia em 5 segundos.' -TextoOk 'Reiniciar' -Tipo 'perigo' -Acao {
         Write-Log 'Usuário pediu reinício.'
-        shutdown.exe /r /t 5 /c "Otimizador Vinicius: reiniciando para concluir os ajustes."
+        shutdown.exe /r /t 5 /c "TechPulse: reiniciando para concluir os ajustes."
     }
 })
 $UI.BtnExecLogoff.Add_Click({
@@ -1209,7 +1211,7 @@ $UI.BtnResetRede.Add_Click({
                 param($saida, $erro)
                 if ($erro) { Show-Toast "Falhou: $erro" 'erro'; return }
                 Show-Dialogo -Titulo 'Reset feito. Reiniciar agora?' -Texto 'A rede só volta ao normal depois de reiniciar.' -TextoOk 'Reiniciar agora' -Tipo 'perigo' -Acao {
-                    shutdown.exe /r /t 5 /c "Otimizador Vinicius: reiniciando após o reset de rede."
+                    shutdown.exe /r /t 5 /c "TechPulse: reiniciando após o reset de rede."
                 }
             }
         }
@@ -2719,7 +2721,7 @@ $UI.BtnAbrirLog.Add_Click({ if (Test-Path $Otz.ArqLog) { Start-Process notepad.e
 # ===============================================================
 $faq = @(
     ,@('Apliquei um ajuste e não gostei. Como volto?', 'Em Otimizar, clique no ajuste e use "Desfazer este ajuste". Para voltar tudo de uma vez: Histórico > Desfazer todos. Antes de mudar qualquer coisa, o otimizador guarda o valor original exato, inclusive se a configuração nem existia.')
-    ,@('Algo deu muito errado. E agora?', 'Use o ponto de restauração: Histórico > Abrir restauração (ou Win+R, digite rstrui e Enter). Escolha o ponto "Otimizador Vinicius" com a data certa. O Windows volta a como estava antes, sem apagar seus arquivos pessoais.')
+    ,@('Algo deu muito errado. E agora?', 'Use o ponto de restauração: Histórico > Abrir restauração (ou Win+R, digite rstrui e Enter). Escolha o ponto "TechPulse" com a data certa. O Windows volta a como estava antes, sem apagar seus arquivos pessoais.')
     ,@('O que é um ponto de restauração?', 'É uma "foto" das configurações do Windows. O otimizador cria uma automaticamente antes da primeira alteração, sempre que você abre o programa.')
     ,@('Por que alguns itens estão apagados (cinza)?', 'Eles não existem na sua versão do Windows (por exemplo, itens só do Windows 11) ou não se aplicam ao seu hardware. Passe o mouse por cima do item para ver o motivo.')
     ,@('O que o botão "Simular" faz?', 'Mostra, item por item, o valor atual e o valor que seria gravado, sem alterar nada. Bom para conferir antes de aplicar.')
@@ -2739,7 +2741,74 @@ foreach ($f in $faq) {
     $ex.Header = $h; $ex.Content = $c
     [void]$UI.PainelFaq.Children.Add($ex)
 }
-$UI.TxtSobre.Text = "Otimizador Vinicius v$($Otz.Versao). Desenvolvimento próprio, para Windows 10 e 11. Cada ajuste é uma ficha no catálogo (src\catalogo) com explicação, detecção, aplicação e desfazer."
+$UI.TxtSobre.Text = "TechPulse v$($Otz.Versao). Desenvolvimento próprio, para Windows 10 e 11. Cada ajuste é uma ficha no catálogo (src\catalogo) com explicação, detecção, aplicação e desfazer."
+
+# ===============================================================
+#  Atualizações (Releases do GitHub; só no app instalado)
+# ===============================================================
+function Get-CanalAtual { if ($S.Canal) { return $S.Canal }; return $Otz.Canal }
+
+function Update-TextoVersao {
+    $canal = if ((Get-CanalAtual) -eq 'teste') { 'de teste' } else { 'estável' }
+    $modo = if ($Otz.Instalado) { 'Procura versões novas sempre que abre.' } else { 'Rodando da pasta do projeto: a atualização automática só vale no app instalado.' }
+    $UI.TxtVersaoAtual.Text = "Versão $($Otz.Versao), canal $canal. $modo"
+}
+
+function Start-ChecagemAtualizacao([switch]$Manual) {
+    if (Test-TarefaAtiva 'atualizacao') { return }
+    if (-not $Otz.Instalado -and -not $Manual) { return }
+    $S.ChecagemManual = [bool]$Manual
+    Start-Tarefa -Nome 'atualizacao' -Script 'Find-Atualizacao $Parametros.Canal' -Parametros @{ Canal = (Get-CanalAtual) } -AoTerminar {
+        param($saida, $erro)
+        if ($erro) { if ($S.ChecagemManual) { Show-Toast "Não foi possível procurar: $erro" 'erro' }; Write-Log "Atualização: $erro"; return }
+        $u = @($saida | Where-Object { $_ -and $_.Versao })[0]
+        if (-not $u) { if ($S.ChecagemManual) { Show-Toast "Você já está na versão mais nova ($($Otz.Versao))." 'ok' }; return }
+        Show-AvisoAtualizacao $u
+    }
+}
+
+function Show-AvisoAtualizacao($Info) {
+    $S.Atualizacao = $Info
+    $UI.TxtAtualizacao.Text = "TechPulse $($Info.Versao) disponível" + $(if ($Info.Teste) { ' (versão de teste)' } else { '' })
+    # Primeiras linhas das notas, sem marcação de Markdown
+    $linhas = @(([string]$Info.Notas -split "`r?`n") | ForEach-Object { ($_ -replace '^[#>*\-\s]+', '' -replace '\*\*', '').Trim() } | Where-Object { $_ } | Select-Object -First 2)
+    $notas = $linhas -join '  ·  '
+    if ($notas.Length -gt 220) { $notas = $notas.Substring(0, 217) + '...' }
+    $UI.TxtAtualizacaoNotas.Text = if ($notas) { $notas } else { 'Clique em "O que mudou" para ver os detalhes.' }
+    $UI.TxtBtnAtualizar.Text = if ($Otz.Instalado) { 'Atualizar agora' } else { 'Baixar' }
+    $UI.BtnAtualizar.IsEnabled = $true
+    $UI.AvisoAtualizacao.Visibility = 'Visible'
+    if ($UI.PagInicio.Visibility -ne 'Visible') { Show-Toast "TechPulse $($Info.Versao) disponível: veja no Início." 'info' }
+}
+
+$UI.BtnAtualizacaoDepois.Add_Click({ $UI.AvisoAtualizacao.Visibility = 'Collapsed' })
+$UI.BtnAtualizacaoNotas.Add_Click({ if ($S.Atualizacao) { Start-Process $S.Atualizacao.Pagina } })
+$UI.BtnProcurarAtualizacao.Add_Click({ Start-ChecagemAtualizacao -Manual })
+foreach ($ev in 'Add_Checked', 'Add_Unchecked') {
+    $UI.ChkCanalTeste.$ev({
+        if ($S.IniciandoCanal) { return }
+        $S.Canal =if ($UI.ChkCanalTeste.IsChecked) { 'teste' } else { 'estavel' }
+        Save-Preferencias
+        Update-TextoVersao
+        if ($Otz.Instalado) { Start-ChecagemAtualizacao -Manual }
+    })
+}
+$UI.BtnAtualizar.Add_Click({
+    $u = $S.Atualizacao
+    if (-not $u) { return }
+    if (-not $Otz.Instalado) { Start-Process $u.Pagina; return }
+    if ($S.Executando) { Show-Toast 'Espere a execução atual terminar para atualizar.' 'aviso'; return }
+    Show-Dialogo -Titulo "Atualizar para a versão $($u.Versao)?" -Texto 'O TechPulse fecha, instala a versão nova e abre de novo sozinho (menos de 1 minuto). Seus ajustes, o histórico e as preferências continuam.' -TextoOk 'Atualizar' -Acao {
+        $UI.BtnAtualizar.IsEnabled = $false
+        $UI.TxtBtnAtualizar.Text = 'Baixando...'
+        Start-Tarefa -Nome 'atualizar' -Script 'Start-Atualizacao $Parametros.Info $Parametros.Pid' -Parametros @{ Info = $S.Atualizacao; Pid = [int]$PID } -AoTerminar {
+            param($saida, $erro)
+            if ($erro) { $UI.BtnAtualizar.IsEnabled = $true; $UI.TxtBtnAtualizar.Text = 'Tentar de novo'; Show-Toast "Não foi possível atualizar: $erro" 'erro'; return }
+            Write-Log 'Fechando para atualizar.'
+            $Win.Close()
+        }
+    }
+})
 $UI.TxtSobrePasta.Text = "Dados: $($Otz.Dados)"
 
 # ===============================================================
@@ -3479,8 +3548,13 @@ try {
         $prefs = [IO.File]::ReadAllText($S.ArqPrefs) | ConvertFrom-Json
         $S.ModoAvancado = [bool]$prefs.Avancado
         $S.PastaFrota = [string]$prefs.PastaFrota
+        $S.Canal = [string]$prefs.Canal
     }
 } catch { }
+$S.IniciandoCanal = $true
+$UI.ChkCanalTeste.IsChecked = ((Get-CanalAtual) -eq 'teste')
+$S.IniciandoCanal = $false
+Update-TextoVersao
 $UI.ChkAvancado.IsChecked = $S.ModoAvancado
 Set-ModoAvancado $S.ModoAvancado
 
@@ -3494,6 +3568,7 @@ $Win.Add_ContentRendered({
     Show-Entrada $UI.PagInicio
     Start-Deteccao
     Start-InfoPC
+    Start-ChecagemAtualizacao
 })
 
 # Modo de captura (teste visual): salva PNGs de cada tela e fecha

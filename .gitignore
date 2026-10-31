@@ -8,6 +8,9 @@ log_*.txt
 Relatorio_PC_*.html
 winget-programas.json
 
+# Build do TechPulse (tools\build.ps1)
+dist/
+
 # Editor / sistema
 .vscode/
 *.code-workspace

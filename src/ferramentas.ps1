@@ -1,6 +1,6 @@
 ﻿#Requires -Version 5.1
 <#
-    Ferramentas do Otimizador Vinicius v2.0
+    Ferramentas do TechPulse v2.0
     Funções sem interface: devolvem dados. Quem desenha é a janela.
     Dependem do nucleo.ps1 (Write-Log, Send-Evento, Read-RegValor...).
 #>
@@ -216,7 +216,7 @@ ul{margin:0;padding-left:20px}li{margin:5px 0}.alert li{color:var(--tx)}.alert l
 .foot{color:var(--mut);font-size:13px;text-align:center;margin-top:8px}
 </style></head><body><div class="wrap">
 <h1>$(& $e $Info.Computador) <span class="tier">$($Info.Tier)</span></h1>
-<p class="sub">Gerado em $data pelo Otimizador Vinicius v$($Script:Otz.Versao). A classificação considera CPU, RAM e disco (não avalia a placa de vídeo).</p>
+<p class="sub">Gerado em $data pelo TechPulse v$($Script:Otz.Versao). A classificação considera CPU, RAM e disco (não avalia a placa de vídeo).</p>
 <div class="card alert"><h2>Pontos de atenção</h2><ul>$liAlert</ul></div>
 <div class="card"><h2>Recomendações para $($Info.Tier)</h2><ul>$liRecs</ul></div>
 <div class="grid">

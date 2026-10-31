@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.1.0] — TechPulse
+
+### Novo
+- O app passa a se chamar **TechPulse**, com ícone próprio, `TechPulse.exe` (pede administrador no clique, sem janela de console) e **instalador** (`TechPulse-Setup-x.y.z.exe`, Inno Setup) com atalhos e desinstalação pelo Windows.
+- **Atualização automática:** ao abrir, consulta as Releases do GitHub; se houver versão nova, mostra o aviso no Início e atualiza com um clique (fecha, instala em silêncio e reabre). Canal estável ou de teste em Ajuda > Atualizações.
+- **Publicação automática** (GitHub Actions): cada push no `main` vira versão de teste; cada tag `v*` vira versão estável.
+- Os dados continuam em `Documentos\OtimizadorVinicius` e a tarefa agendada mantém o nome, para não perder nada de quem já usava.
+
 ## [2.0] — em teste
 
 ### Novo (6ª rodada: segundo plano e desinstalador)

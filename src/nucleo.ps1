@@ -1,6 +1,6 @@
 ﻿#Requires -Version 5.1
 <#
-    Núcleo do Otimizador Vinicius v2.0
+    Núcleo do TechPulse v2.0
     ---------------------------------------------------------------
     Motor que lê o catálogo (src\catalogo\*.ps1) e executa cada ajuste:
       - Get-EstadoAjuste   → já está aplicado?
@@ -28,8 +28,18 @@ function Initialize-Otz {
     )
     $cv = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
     $dados = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'OtimizadorVinicius'
+    # Versão: src\versao.txt (escrito pelo build) ou versao.txt da raiz do projeto (desenvolvimento)
+    $versao = '2.0'
+    foreach ($arqV in @((Join-Path $SrcDir 'versao.txt'), (Join-Path (Split-Path $SrcDir) 'versao.txt'))) {
+        if (Test-Path $arqV) { $versao = ([IO.File]::ReadAllText($arqV)).Trim(); break }
+    }
+    $canal = 'estavel'
+    $arqC = Join-Path $SrcDir 'canal.txt'
+    if (Test-Path $arqC) { $canal = ([IO.File]::ReadAllText($arqC)).Trim() }
     $Script:Otz = @{
-        Versao     = '2.0'
+        Versao     = $versao
+        Canal      = $canal   # canal com que foi instalado; a preferência do usuário pode trocar
+        Instalado  = (Test-Path (Join-Path (Split-Path $SrcDir) 'TechPulse.exe'))
         SrcDir     = $SrcDir
         Fila       = $Fila
         SidAlvo    = $SidAlvo   # preenchido quando o admin é outra conta: HKCU vira HKU\<sid>
@@ -713,7 +723,7 @@ function New-PontoRestauracao {
         # O Windows só permite 1 ponto a cada 24 h; libera temporariamente
         New-ItemProperty -Path $chave -Name 'SystemRestorePointCreationFrequency' -Value 0 -PropertyType DWord -Force | Out-Null
         $avisos = $null
-        Checkpoint-Computer -Description ("Otimizador Vinicius " + (Get-Date -Format 'dd/MM HH:mm')) -RestorePointType MODIFY_SETTINGS -ErrorAction Stop -WarningVariable avisos -WarningAction SilentlyContinue
+        Checkpoint-Computer -Description ("TechPulse " + (Get-Date -Format 'dd/MM HH:mm')) -RestorePointType MODIFY_SETTINGS -ErrorAction Stop -WarningVariable avisos -WarningAction SilentlyContinue
         if ($avisos) { return @{ Status = 'aviso'; Mensagem = [string]$avisos[0] } }
         return @{ Status = 'ok'; Mensagem = 'Ponto de restauração criado.' }
     } catch {
@@ -877,7 +887,7 @@ function Import-Perfil([string]$Arquivo) {
     if (-not (Test-Path $Arquivo)) { throw "Arquivo não encontrado: $Arquivo" }
     $p = $null
     try { $p = [IO.File]::ReadAllText($Arquivo, [Text.Encoding]::UTF8) | ConvertFrom-Json } catch { }
-    if (-not $p -or $p.Formato -ne 'otimizador-vinicius-perfil') { throw 'Este arquivo não é um perfil do Otimizador Vinicius (exporte pelo botão Exportar, em Otimizar).' }
+    if (-not $p -or $p.Formato -ne 'otimizador-vinicius-perfil') { throw 'Este arquivo não é um perfil do TechPulse (exporte pelo botão Exportar, em Otimizar).' }
     return $p
 }
 

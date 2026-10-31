@@ -9,17 +9,33 @@
 
 **Otimizador Vinicius** é um otimizador de Windows de **desenvolvimento próprio** do Vinícius (analista de sistemas na área de IoT, telemetria e rastreamento de frotas).
 
-- **Hoje:** script PowerShell com menu de texto (v1.1).
-- **Próximo:** interface gráfica com caixas de seleção, explicação de cada ajuste e feedback visual de execução (v2.0).
+- **Hoje:** v2.0, interface gráfica WPF + catálogo de ajustes (**em teste**: falta validar a aplicação com administrador, ver `docs/plano-de-testes.md`). A v1.1 (menu de texto) continua como alternativa.
 - **Futuro:** aplicativo C# com `.exe`, instalador e atualização (v3.0).
 
-### Arquivos atuais (v1.1)
+### Arquivos atuais (v2.0)
 
 | Arquivo | Função |
 |---|---|
-| `src/Otimizador-Vinicius.ps1` | Script principal (~1000 linhas). Menu, módulos, backup e restauração. |
-| `src/Executar-Otimizador.bat` | Atalho: chama o `.ps1` com `-ExecutionPolicy Bypass`. O `.ps1` se autoeleva para administrador. |
-| `config/winget-lista-exemplo.txt` | Modelo de lista de programas. Copiado para `src/winget-lista.txt` (ao lado do script), substitui a lista padrão. |
+| `src/Executar-Otimizador.bat` | Abre a interface (`-STA -WindowStyle Hidden`). O `.ps1` se autoeleva. `.bat` = ASCII sem BOM + CRLF. |
+| `src/Otimizador-Vinicius-GUI.ps1` | Janela: navegação, eventos, tarefas em segundo plano. Parâmetros de desenvolvimento: `-SemElevar` e `-Captura <pasta>` (salva PNG de cada tela e fecha). |
+| `src/nucleo.ps1` | Motor: registro via .NET (HKCU/HKLM/HKU, valor padrão, tipos exatos), powercfg, originais, catálogo, `Invoke-Plano`, ponto de restauração, histórico, log. |
+| `src/diagnostico.ps1` | Placa de vídeo (`Get-InfoGpu`, dicas do painel por fabricante/modo, placa por programa), bateria, memória e as checagens da página Verificar (`Get-Saude*`, evento `checagem`). |
+| `src/ui/Tela.cs` | Win32 `EnumDisplaySettings`/`ChangeDisplaySettingsEx`: Hz atual e máximo de cada monitor. |
+| `src/ferramentas.ps1` | `Get-InfoPC`, relatório HTML, inicialização, drivers serial, DNS, teste TCP, `Invoke-ProcessoAoVivo` (SFC/DISM/winget), lista winget. |
+| `src/catalogo/NN-*.ps1` | Um arquivo por categoria; cada item é um hashtable (ver `docs/catalogo.md`). 67 itens. Tipos de mudança suportados pelo motor: `Registro`, `Energia` (com `Corrente = 'dc'` para bateria), `Servicos` (sc config), `DirectX` (string global de jogos) ou código próprio. |
+| `src/ui/Janela.xaml` | Layout, estilos e paleta (escuro; o tema claro troca os pincéis em `Set-Tema`). |
+| `src/ui/Modelos.cs` | View models com `INotifyPropertyChanged` (`Otz.Ajuste`, `Otz.ItemInicio`, `Otz.Linha`), compilados com `Add-Type` (C# 5). |
+| `src/Otimizador-Vinicius.ps1` + `Executar-Modo-Texto.bat` | v1.1 (menu de texto), com as correções da revisão. |
+| `tools/verificar.ps1` | Normaliza BOM/CRLF, faz o parse de todos os `.ps1` e carrega os `.xaml`. **Rodar antes de cada commit.** |
+| `docs/` | `revisao-v1.1.md`, `catalogo.md`, `plano-de-testes.md`, `telas/`. |
+| `config/winget-lista-exemplo.txt` | Modelo de lista de programas. Copiado para `src/winget-lista.txt`, substitui a lista padrão. |
+
+### Como a v2.0 funciona (resumo)
+
+- **Tarefas em segundo plano:** `Start-Tarefa` cria um runspace (STA) que carrega `nucleo.ps1` + `ferramentas.ps1` e roda um script em texto. Eventos (`Send-Evento`) vão para uma `ConcurrentQueue`, que um `DispatcherTimer` (90 ms) lê na interface. Nunca passar scriptblocks entre runspaces.
+- **Desfazer:** na primeira aplicação, `originais.json` guarda, por item, o valor original exato (`Existia`, `Tipo`, `Valor`, `ChaveCriada`). O desfazer restaura ou apaga e remove as chaves vazias até a que foi criada. Itens com código próprio guardam o próprio estado com `Set-Original`.
+- **Dados:** `Documentos\OtimizadorVinicius\` → `originais.json`, `historico.jsonl`, `log_<data>.txt`, `preferencias.json` (tema), relatórios.
+- **Perfis** só marcam itens do perfil que estão **pendentes**; itens `avancado` nunca entram. Clicar numa caixa muda para "Personalizado".
 
 ---
 
@@ -95,7 +111,8 @@
 
 ### 4.5 Limitações conhecidas
 
-- ⚠️ **O script nunca foi executado.** Foi escrito em ambiente Linux sem PowerShell. A sintaxe foi revisada manualmente, mas **precisa de teste real** (de preferência em VM ou PC de testes, item por item).
+- ⚠️ **v2.0: a aplicação real com administrador ainda não foi testada.** Testado sem admin no PC do Vinícius (Win11 25H2, build 26200, Ryzen 7 5700, 32 GB, RTX 5070): abertura, todas as telas, detecção, simulação, hardware, rede, inicialização e o motor de aplicar/desfazer numa chave isolada. Revisão da v1.1 em `docs/revisao-v1.1.md`.
+- O PC do Vinícius já tem a v1.1 aplicada em parte (plano "Vinicius - Desempenho Maximo" ativo, mouse sem aceleração etc.): 28 de 38 ajustes recomendados aparecem como "Aplicado". Esses não têm original guardado, então o "Desfazer" não age neles.
 - Se o usuário logado não for administrador e elevar com outra conta, as alterações em `HKCU` vão para a conta errada.
 - Winget: IDs da lista padrão devem ser conferidos com `winget search`.
 - Ajustes de MMCSS/`SystemResponsiveness` têm efeito discutível; manter como opcionais.
@@ -104,9 +121,10 @@
 
 ## 5. Pendências imediatas (urgente)
 
-1. **Testar a v1.1 no Windows real**, opção por opção, e corrigir erros encontrados.
+1. **Executar o `docs/plano-de-testes.md`** (v2.0 com administrador), fase por fase, e corrigir o que falhar.
 2. ~~Colocar o projeto no **Git**~~ ✅ feito (estrutura `src/`, `config/`, `docs/`; `.gitattributes` força CRLF).
-3. Validar os IDs do winget e o comportamento da opção **S** (StartupApproved) no Win10 e no Win11.
+3. Validar os IDs do winget, o StartupApproved no Win10, o valor do Num Lock (`2` ou `2147483650`), os nomes `VRROptimizeEnable`/`AutoHDREnable` e os GUIDs de tampa/economia de bateria num notebook.
+4. Testar num **Windows 10** (VM): itens exclusivos, fonte Segoe MDL2 e notícias e interesses.
 
 ---
 
@@ -202,9 +220,9 @@ Benefícios: a interface se monta a partir do catálogo, adicionar um ajuste nã
 
 | Versão | Tecnologia | Entrega |
 |---|---|---|
-| **v1.1** ✅ | PowerShell (menu texto) | Atual — falta testar |
-| **v1.2** | PowerShell | Refatorar para **catálogo** (Detectar/Aplicar/Desfazer) mantendo o menu |
-| **v2.0** | PowerShell + **WPF (XAML)** | Janela gráfica conforme seção 7, ainda sem instalação |
+| **v1.1** ✅ | PowerShell (menu texto) | Mantida como modo texto, com correções |
+| **v1.2** ✅ | PowerShell | Catálogo (Detectar/Simular/Aplicar/Desfazer): feito junto com a v2.0 |
+| **v2.0** 🧪 | PowerShell + **WPF (XAML)** | Janela gráfica conforme seção 7: feita, em teste |
 | **v3.0** | **C# .NET 8** + WPF ou WinUI 3 | `.exe`, instalador, atualização automática, assinatura digital |
 
 Evitar Electron (pesado demais para um otimizador).
@@ -233,7 +251,9 @@ Evitar Electron (pesado demais para um otimizador).
 - Atualização automática.
 - Instalador.
 
-**Deixados de fora de propósito** (risco alto ou ganho duvidoso): desativar Defender, desativar serviços em massa, `bcdedit`/timer resolution, remover apps nativos (debloat agressivo).
+**Serviços:** entraram só 9, conservadores, um por um, com consumo medido e desfazer (pedido do Vinícius para PCs de 8/16 GB). Continua fora: desativar serviços em massa.
+
+**Deixados de fora de propósito** (risco alto ou ganho duvidoso): desativar Defender, `bcdedit`/timer resolution, remover apps nativos (debloat agressivo).
 
 ---
 
@@ -249,11 +269,9 @@ Evitar Electron (pesado demais para um otimizador).
 
 ## 12. Próximo passo sugerido
 
-Decisão pendente com o Vinícius: **refatorar primeiro para o catálogo (v1.2)** ou **ir direto para a v2.0 com WPF já usando o catálogo**.
+Decidido: v1.2 + v2.0 foram feitas juntas (catálogo + WPF). Próximo: rodar o plano de testes com administrador. Depois, pela ordem do backlog: perfil exportável e modo silencioso (`/perfil x.json`), manutenção agendada e comparação antes/depois do relatório.
 
-Recomendação: começar pelo **teste da v1.1 + Git**, depois **v1.2 (catálogo)**, pois a v2.0 depende dele.
-
-Estrutura de pastas sugerida:
+Estrutura original sugerida (a atual está na seção 1):
 
 ```
 otimizador-vinicius/
@@ -269,3 +287,24 @@ otimizador-vinicius/
 │  └─ winget-lista-exemplo.txt
 └─ docs/
 ```
+
+---
+
+## 13. Armadilhas do PowerShell 5.1 (encontradas nos testes da v2.0)
+
+Todas causaram bugs reais. Conferir sempre que escrever código novo.
+
+| Armadilha | Sintoma | Como fazer |
+|---|---|---|
+| Arquivo salvo sem BOM | Acentos viram `Ã¡` | Rodar `tools\verificar.ps1` depois de editar. |
+| `@($null).Count` é **1** | Item sem `Energia` indexava `$null[0]` | Testar com `if ($Item.Energia)`. |
+| `New-Object` devolve PSObject embrulhado | WPF recusa como pincel, `Content`/`Header` mostram o nome do tipo, `SelectedItem` não acha o item | Usar `[Tipo]::new()` em tudo que vai para propriedade `object` do WPF; `ItemsSource` com lista tipada (`[Otz.Linha[]]@(...)` ou `ObservableCollection[T]`). |
+| `@( @(a,b) @(c,d) )` | As listas internas são "achatadas" | Vírgula na frente: `,@(a,b)`. |
+| `return $array` | O array é desmontado; `byte[]` vira `object[]` e o `SetValue` Binary falha | `return , $array`. |
+| `if`/pipeline dentro de `[pscustomobject]@{...}` grande, ou `@($lista)` em função com função aninhada | `Os tipos de argumento não correspondem` | Montar o objeto com `$r = [ordered]@{}; $r.X = ...`; usar `$lista.ToArray()`. |
+| `$sender` como parâmetro | Variável automática | Usar `param($origem, $e)`. |
+| `$x:` em string | `"$sug: texto"` é lido como unidade/escopo | `"$($sug): texto"`. |
+| Scriptblock entre runspaces | Trava ou roda na thread errada | Passar código como **texto** ao runspace. |
+| `[T[]]@($lista)` com `List[object]` | `Os tipos de argumento não correspondem` (quase quebrou o diálogo de Aplicar) | Converter com laço + `List[T].ToArray()` (`ConvertTo-Linhas`). |
+| Apelido de `powercfg` que não existe | `LIDACTION`, `ESBATTTHRESHOLD`, `SUB_ENERGYSAVER` e `PERFBOOSTMODE` NÃO existem neste Windows | Conferir com `powercfg /aliases`; usar o GUID. |
+| `.bat` com BOM | O `cmd` quebra na 1ª linha | `.bat` em ASCII + CRLF. |

@@ -90,6 +90,16 @@ function Cortar([string]$s, [int]$n) {
     return $s
 }
 
+# Reinicia o Explorer; se o Windows não reabrir sozinho em 3 s, abre manualmente
+function Restart-Explorer {
+    Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+    for ($i = 0; $i -lt 6; $i++) {
+        Start-Sleep -Milliseconds 500
+        if (Get-Process explorer -ErrorAction SilentlyContinue) { return }
+    }
+    Start-Process explorer.exe
+}
+
 # Lê "1,3,5-8" ou "T" (todos) e devolve índices de 1..$max
 function Read-Indices([string]$texto, [int]$max) {
     $texto = $texto.Trim().ToUpper()
@@ -146,17 +156,25 @@ function New-PontoRestauracao {
     $Script:PontoCriado = $true
     Write-Titulo 'Ponto de restauração'
     $chaveSR = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore'
+    # Guarda o valor do usuário (se houver) para não apagar uma configuração dele
+    $anterior = (Get-ItemProperty -Path $chaveSR -Name 'SystemRestorePointCreationFrequency' -ErrorAction SilentlyContinue).SystemRestorePointCreationFrequency
     try {
         Enable-ComputerRestore -Drive "$env:SystemDrive\" -ErrorAction Stop
         # O Windows só permite 1 ponto a cada 24h; libera temporariamente
         New-ItemProperty -Path $chaveSR -Name 'SystemRestorePointCreationFrequency' -Value 0 -PropertyType DWord -Force | Out-Null
-        Checkpoint-Computer -Description ("Otimizador Vinicius " + (Get-Date -Format 'dd/MM HH:mm')) -RestorePointType MODIFY_SETTINGS -ErrorAction Stop
-        Write-Ok 'Ponto de restauração criado.'
+        $avisos = $null
+        Checkpoint-Computer -Description ("Otimizador Vinicius " + (Get-Date -Format 'dd/MM HH:mm')) -RestorePointType MODIFY_SETTINGS -ErrorAction Stop -WarningVariable avisos -WarningAction SilentlyContinue
+        # Checkpoint-Computer avisa (não dá erro) quando não consegue criar o ponto
+        if ($avisos) { Write-Aviso "Ponto não criado: $($avisos[0])" } else { Write-Ok 'Ponto de restauração criado.' }
     } catch {
         Write-Aviso "Não foi possível criar o ponto: $($_.Exception.Message)"
         Write-Aviso 'O backup .reg continuará sendo feito normalmente.'
     } finally {
-        Remove-ItemProperty -Path $chaveSR -Name 'SystemRestorePointCreationFrequency' -ErrorAction SilentlyContinue
+        if ($null -ne $anterior) {
+            New-ItemProperty -Path $chaveSR -Name 'SystemRestorePointCreationFrequency' -Value $anterior -PropertyType DWord -Force | Out-Null
+        } else {
+            Remove-ItemProperty -Path $chaveSR -Name 'SystemRestorePointCreationFrequency' -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -301,7 +319,7 @@ function Optimize-Interface {
     Write-Ok 'Extensões de arquivo visíveis (.exe, .bat, .cfg...).'
     Write-Ok 'Programas de inicialização sem atraso artificial.'
 
-    Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+    Restart-Explorer
     $Script:PrecisaLogoff = $true
 }
 
@@ -334,16 +352,16 @@ function Disable-Anuncios {
 # ===============================================================
 function Invoke-Limpeza {
     Write-Titulo '7 - Limpeza de temporários'
-    $total = 0
+    $liberado = 0
     foreach ($pasta in @($env:TEMP, "$env:SystemRoot\Temp")) {
         if (-not (Test-Path $pasta)) { continue }
-        $itens = Get-ChildItem $pasta -Recurse -Force -ErrorAction SilentlyContinue
-        $tam   = ($itens | Where-Object { -not $_.PSIsContainer } | Measure-Object Length -Sum).Sum
+        $antes = [double](Get-ChildItem $pasta -Recurse -Force -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum
         Get-ChildItem $pasta -Force -ErrorAction SilentlyContinue |
             Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-        $total += [double]$tam
+        $depois = [double](Get-ChildItem $pasta -Recurse -Force -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum
+        $liberado += [math]::Max(0, $antes - $depois)
     }
-    Write-Ok ("Temporários: {0:N0} MB analisados (arquivos em uso são ignorados)." -f ($total / 1MB))
+    Write-Ok ("Temporários: {0:N0} MB liberados (arquivos em uso foram mantidos)." -f ($liberado / 1MB))
 
     ipconfig /flushdns | Out-Null
     Write-Ok 'Cache DNS limpo.'
@@ -378,14 +396,14 @@ function Set-MenuClassico {
     $p = 'HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32'
     New-Item -Path $p -Force | Out-Null
     Set-Item -Path $p -Value ''
-    Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+    Restart-Explorer
     Write-Ok 'Clique direito volta ao menu completo, sem "Mostrar mais opções".'
     Write-Aviso 'Para desfazer use a opção D (a restauração R não remove esta chave).'
 }
 
 function Undo-MenuClassico {
     Remove-Item 'HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}' -Recurse -Force -ErrorAction SilentlyContinue
-    Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+    Restart-Explorer
     Write-Ok 'Menu de contexto do Windows 11 restaurado.'
 }
 
@@ -552,6 +570,7 @@ function Get-ItensInicializacao {
         $entradas = @()
         if ($f.Tipo -eq 'Reg') {
             $props = Get-ItemProperty $f.Origem
+            if (-not $props) { continue }   # chave Run vazia gerava item fantasma sem nome
             $entradas = $props.PSObject.Properties | Where-Object { $_.Name -notin $ignorar } |
                         ForEach-Object { @{ Nome = $_.Name; Comando = [string]$_.Value } }
         } else {
